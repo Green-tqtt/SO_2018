@@ -44,6 +44,8 @@ void signal_handler(int signum);
 void create_thread_pool();
 void destroy_thread_pool();
 void *drone_action();
+void create_shared_memory();
+void destroy_shared_memory();
 
 //criacao de struct product type que vai conter os produtos especificados
 typedef struct productType{
@@ -101,6 +103,16 @@ typedef struct drone{
     float d_x, d_y, dest_x, dest_y;
 }Drone;
 Drone *drone_ptr;
+
+typedef struct stats{
+    int n_e_drones; //Número total de encomendas atribuidas a drones
+    int n_p_warehouse; // Número total de produtos carregados de armazéns
+    int n_e_delivered; //Número total de encomendas entregues
+    int n_p_delivered; //Número total de produtos entregues
+    float average_time; //Tempo médio de conclusão de uma encomenda
+}Stats;
+Stats *stats_ptr;
+
 
 /*
  * Computes the distance between two points
