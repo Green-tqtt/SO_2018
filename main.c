@@ -12,15 +12,16 @@ int shmid;
 
 int main(){
 	signal(SIGINT, signal_handler);
+    
     printf("oi");
-<<<<<<< HEAD
     Warehouse *list[2];
 	sample = (Warehouse *)malloc(sizeof(Warehouse));
     sample->w_x = 200;
 
     list[1]=sample;
 
-    printf("\nsample x : %d\n", list[1]->w_x);
+    printf("\nsample x : %f\n", list[1]->w_x);
+    read_config();
     create_thread_pool();
     create_shared_memory();
     while(power){
@@ -120,8 +121,6 @@ void destroy_shared_memory(){
         perror("Error unmapping shared memory\n");
     }
     printf("Sucessfully shmctl'd\n");
-=======
-    read_config();
 }
 
 
@@ -199,5 +198,4 @@ void list_product_types(ProductTypeList productType){
         printf("Type: %s\n", node->product_type.p_name);
         node = node->next;
     } 
->>>>>>> a7c7dcb61aa7d8ac8c942e19cf7f20bf72a9fa2f
 }

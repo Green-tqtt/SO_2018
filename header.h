@@ -1,22 +1,3 @@
-#include <signal.h>
-#include <semaphore.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <sys/types.h> 
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <ctype.h>
-#include <sys/stat.h>
-#include <pthread.h>
-#include <sys/wait.h>
-#include <stdlib.h>
-#include <string.h>
-#include <signal.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
-#include <math.h>
 
 /*H**********************************************************************
 * FILENAME :   	drone_movement.h
@@ -37,7 +18,7 @@
 
 #ifndef SO2018_DRONE_MOVEMENT_H
 #define SO2018_DRONE_MOVEMENT_H
-<<<<<<< HEAD
+
 #include <signal.h>
 #include <semaphore.h>
 #include <fcntl.h>
@@ -57,18 +38,10 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <math.h>
-=======
->>>>>>> a7c7dcb61aa7d8ac8c942e19cf7f20bf72a9fa2f
 
 
 #define DISTANCE 1
 
-void signal_handler(int signum);
-void create_thread_pool();
-void destroy_thread_pool();
-void *drone_action();
-void create_shared_memory();
-void destroy_shared_memory();
 
 //criacao de struct product type que vai conter os produtos especificados
 typedef struct productType{
@@ -163,8 +136,16 @@ double distance(double x1, double y1, double x2, double y2);
  */
 int move_towards(double *drone_x, double *drone_y, double target_x, double target_y);
 
+void signal_handler(int signum);
+void create_thread_pool();
+void destroy_thread_pool();
+void *drone_action();
+void create_shared_memory();
+void destroy_shared_memory();
 void read_config();
 ProductTypeList create_product_type_list(void);
 void insert_product_type(char p_name[50], ProductTypeList productType);
 void list_product_types(ProductTypeList productType);
+
+
 #endif
