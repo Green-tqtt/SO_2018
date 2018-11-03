@@ -24,6 +24,7 @@ int main(){
     read_config();
     create_thread_pool();
     create_shared_memory();
+    create_process();
     while(power){
 
 
@@ -198,4 +199,27 @@ void list_product_types(ProductTypeList productType){
         printf("Type: %s\n", node->product_type.p_name);
         node = node->next;
     } 
+}
+
+
+void create_process(){
+    
+    pid_t pid;
+    pid = fork();
+
+    if(pid == 0){
+        drone_activity();
+    }
+    else{
+        central();
+    }
+
+}
+
+void drone_activity(){
+    printf("\n---Drone created---\n");
+}
+
+void central(){
+    printf("\n---Central Working---");
 }

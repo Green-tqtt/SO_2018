@@ -146,6 +146,8 @@ void read_config();
 ProductTypeList create_product_type_list(void);
 void insert_product_type(char p_name[50], ProductTypeList productType);
 void list_product_types(ProductTypeList productType);
-
+void create_process();
+void drone_activity();
+void central();
 
 #endif
