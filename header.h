@@ -1,3 +1,23 @@
+#include <signal.h>
+#include <semaphore.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <sys/types.h> 
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <ctype.h>
+#include <sys/stat.h>
+#include <pthread.h>
+#include <sys/wait.h>
+#include <stdlib.h>
+#include <string.h>
+#include <signal.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <math.h>
+
 /*H**********************************************************************
 * FILENAME :   	drone_movement.h
 *
@@ -19,10 +39,6 @@
 #define SO2018_DRONE_MOVEMENT_H
 
 
-#include <stdio.h>
-#include <math.h>
-
-
 #define DISTANCE 1
 
 
@@ -35,8 +51,8 @@ typedef struct productType{
 Product_type* type_ptr;
 
 //vai servir para comparar se os produtos no inicio do warehouse são válidos
-typedef struct productType *ProductTypeList;
-typedef struct Type_node{
+typedef struct product_type_node *ProductTypeList;
+typedef struct product_type_node{
     Product_type product_type;
     ProductTypeList next;
 }type_node;
@@ -61,8 +77,8 @@ typedef struct Product_node{
 //cada warehouse vai ter a sua lista ligada de produtos com o seu nome e a sua quantidade
 typedef struct warehouse{
     char w_name[50];
-    int w_x;
-    int w_y;
+    float w_x;
+    float w_y;
 }Warehouse;
 //pointer para a struct warehouse
 Warehouse *w_ptr;
@@ -109,4 +125,8 @@ double distance(double x1, double y1, double x2, double y2);
  */
 int move_towards(double *drone_x, double *drone_y, double target_x, double target_y);
 
+void read_config();
+ProductTypeList create_product_type_list(void);
+void insert_product_type(char p_name[50], ProductTypeList productType);
+void list_product_types(ProductTypeList productType);
 #endif
