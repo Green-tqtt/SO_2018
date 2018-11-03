@@ -17,14 +17,33 @@
 
 #ifndef SO2018_DRONE_MOVEMENT_H
 #define SO2018_DRONE_MOVEMENT_H
-
-
+#include <signal.h>
+#include <semaphore.h>
+#include <fcntl.h>
 #include <stdio.h>
+#include <sys/types.h> 
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <ctype.h>
+#include <sys/stat.h>
+#include <pthread.h>
+#include <sys/wait.h>
+#include <stdlib.h>
+#include <string.h>
+#include <signal.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 #include <math.h>
 
 
 #define DISTANCE 1
 
+void signal_handler(int signum);
+void create_thread_pool();
+void destroy_thread_pool();
+void *drone_action();
 
 //criacao de struct product type que vai conter os produtos especificados
 typedef struct productType{
@@ -101,7 +120,7 @@ double distance(double x1, double y1, double x2, double y2);
  * 
  * returns  0 - in case it moved and reached the target
  *				drone_x, drone_y will be updated
- *
+ *  
  * returns -1 - in case it was already in the target
  *				drone_x, drone_y are NOT updated
  * returns -2 - in case there is an error
