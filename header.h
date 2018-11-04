@@ -146,8 +146,13 @@ void read_config();
 ProductTypeList create_product_type_list(void);
 void insert_product_type(char p_name[50], ProductTypeList productType);
 void list_product_types(ProductTypeList productType);
+ProductList create_product_list(void);
+void insert_product(char p_name[50], int quantity, char w_name[50], ProductList prodList);
+int check_prod_type(char p_name[50], ProductTypeList productType);
+void list_product(ProductList product);
 void create_process();
-void drone_activity();
+void warehouse_activity();
 void central();
+
 
 #endif

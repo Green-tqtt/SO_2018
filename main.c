@@ -1,26 +1,21 @@
 #include "header.h"
 int world_cord_x;
 int world_cord_y;
-Warehouse *sample;
+int n_drones;
+int S, Q, T;
+Warehouse **warehouseArray;
 ProductTypeList productType;
-
+ProductList prodList;
+int shmid; 
 Stats *stats_ptr;
-Warehouse *sample;
 pthread_t drone_thread[4]; //Número de Drones
 int power = 1;
-int shmid;
 
 int main(){
 	signal(SIGINT, signal_handler);
     
     printf("oi");
-    Warehouse *list[2];
-	sample = (Warehouse *)malloc(sizeof(Warehouse));
-    sample->w_x = 200;
 
-    list[1]=sample;
-
-    printf("\nsample x : %f\n", list[1]->w_x);
     read_config();
     create_thread_pool();
     create_shared_memory();
@@ -38,7 +33,6 @@ void signal_handler(int signum){
     power = 0;
     destroy_shared_memory();
     destroy_thread_pool();
-    free(sample);
     kill(0, SIGKILL);
     exit(0);
 }
@@ -133,27 +127,32 @@ void read_config(){
     }
     else
         printf("File found\n");
+ 
+    char *token;
     char line[255];
     fgets(line, sizeof(line), fp);
     char wc_x[50], wc_y[50];
-    strcpy(wc_x, strtok(line, ","));
-    strcpy(wc_y, strtok(NULL, ","));
-    printf("World cord x: %s\n", wc_x);
-    printf("World cord y: %s\n", wc_y);
-    /*Warehouse *warehouseList[2];
-    sample = (Warehouse*) malloc(sizeof(Warehouse));
-    sample->w_x = 20;
-    sample->w_y = 30;
-    warehouseList[0] = sample;
-    printf("Warehouse sdds %f\n", sample->w_y);*/
-    char *token;
+    int n_warehouses;
+    //ir buscar primeira ","
+    token = strtok(line, ",");
+    strcpy(wc_x, token);
+    token = strtok(NULL, ",");
+    if(token[0] == ' '){
+        token++;
+        }
+    if(token[strlen(token)-1] == '\n'){
+        token[strlen(token)-1] = '\0';
+        }
+    strcpy(wc_y, token);
+    world_cord_x = atoi(wc_x);
+    world_cord_x = atoi(wc_y);
     char p_name[50];
     productType = create_product_type_list();
     fgets(line, sizeof(line), fp);
     //ir buscar primeira ","
     token = strtok(line, ",");
     while(token != NULL){
-        if(token[0] == ' '){
+        while(token[0] == ' '){
             token++;
         }
         if(token[strlen(token)-1] == '\n'){
@@ -163,22 +162,86 @@ void read_config(){
         insert_product_type(p_name, productType);
         token = strtok(NULL, ",");
     }
+ 
+    fgets(line, sizeof(line), fp);
+    token = strtok(line, "\n");
+    n_drones = atoi(token);
+ 
+    fgets(line, sizeof(line), fp);
+    token = strtok(line, ",");
+    S = atoi(token);
+ 
+    fgets(line, sizeof(line), fp);
+    token = strtok(NULL, ",");
+    if(token[0] == ' '){
+        token++;
+    }
+    Q = atoi(token);
+ 
+    fgets(line, sizeof(line), fp);
+    token = strtok(NULL, ",");
+    if(token[0] == ' '){
+        token++;
+    }
+    if(token[strlen(token)-1] == '\n'){
+        token[strlen(token)-1] = '\0';
+    }
+    T = atoi(token);
+    token = strtok(line, "\n");
+ 
+   
+    n_warehouses = atoi(token);
+ 
+    warehouseArray = malloc(n_warehouses * sizeof(Warehouse*));
+    prodList = create_product_list();
+    int quantity;
+    //meter num for
+    char prodName[50];
+    fflush(stdin);
+    for(int i=0; i<n_warehouses; i++){
+        if(fgets(line, sizeof(line), fp) != NULL){
+            token = strtok(line, " ");
+            Warehouse *h = (Warehouse*) malloc(sizeof(Warehouse));
+            strcpy(h->w_name, token);
+            token = strtok(NULL, "; ");
+            token = strtok(NULL, ",");
+            h->w_x = atof(token);
+            token = strtok(NULL, " ");
+            h->w_y = atof(token);
+            warehouseArray[i] = h;
+            token = strtok(NULL, ": ");
+            while(token != NULL){
+                token = strtok(NULL, ", ");
+                strcpy(prodName, token);
+                token = strtok(NULL, ", ");
+                quantity = atoi(token);
+                insert_product(prodName, quantity, h->w_name, prodList);
+                if(token[strlen(token)-1] == '\n'){
+                    token[strlen(token)-1] = '\0';
+                    token = NULL;
+                }
+            }
+ 
+        }
+    }
     fclose(fp);
-
 }
+
+
 
 //cria lista ligada de product types
 ProductTypeList create_product_type_list(void){
-
+ 
     ProductTypeList type_node;
     type_node = (ProductTypeList) malloc(sizeof(type_node));
-
+ 
     if(type_node != NULL){
         type_node->next = NULL;
     }
     printf("List created\n");
     return type_node;
 }
+
 //insere product no array list de product types
 void insert_product_type(char p_name[50], ProductTypeList productType){
     ProductTypeList insertProduct;
@@ -190,17 +253,69 @@ void insert_product_type(char p_name[50], ProductTypeList productType){
     strcpy(insertProduct->product_type.p_name, p_name);
     atual->next = insertProduct;
     insertProduct->next = NULL;
+    printf("Inserted %s into the linked list\n", insertProduct->product_type.p_name);
 }
-
+ 
 void list_product_types(ProductTypeList productType){
     ProductTypeList node;
     node = productType->next;
     while(node != NULL){
         printf("Type: %s\n", node->product_type.p_name);
         node = node->next;
-    } 
+    }
 }
 
+//cria lista ligada de product types
+ProductList create_product_list(void){
+ 
+    ProductList prod_node;
+    prod_node = (ProductList) malloc(sizeof(product_node));
+ 
+    if(prod_node != NULL){
+        prod_node->next = NULL;
+    }
+    printf("List created\n");
+    return prod_node;
+}
+ 
+void insert_product(char p_name[50], int quantity, char w_name[50], ProductList prodList){
+    ProductList insertProd;
+    ProductList atual = prodList;
+    insertProd = malloc(sizeof(product_node));
+    while(atual->next!= NULL){
+        atual = atual->next;
+    }
+    strcpy(insertProd->product.p_name, p_name);
+    insertProd->product.quantity = quantity;
+    strcpy(insertProd->product.w_name, w_name);
+    atual->next = insertProd;
+    insertProd->next = NULL;
+    printf("Inserted %s into the linked list\n", insertProd->product.p_name);
+}
+ 
+int check_prod_type(char p_name[50], ProductTypeList productType){
+    ProductTypeList node;
+    node = productType->next;
+    while(node != NULL){
+        if(strcmp(node->product_type.p_name, p_name) == 0)
+            return 1;
+        else{
+            node = node->next;
+        }
+}
+    return 0;
+}
+ 
+void list_product(ProductList product){
+    ProductList node;
+    node = product->next;
+    while(node != NULL){
+        printf("Prod: %s\n", node->product.p_name);
+        printf("Quantity: %d\n", node->product.quantity);
+        printf("W_Name: %s\n", node->product.w_name);
+        node = node->next;
+    }
+}
 
 void create_process(){
     
@@ -208,7 +323,7 @@ void create_process(){
     pid = fork();
 
     if(pid == 0){
-        drone_activity();
+        warehouse_activity();
     }
     else{
         central();
@@ -216,8 +331,8 @@ void create_process(){
 
 }
 
-void drone_activity(){
-    printf("\n---Drone created---\n");
+void warehouse_activity(){
+    printf("\n---Warehouse created---\n");
 }
 
 void central(){
