@@ -106,6 +106,13 @@ typedef struct stats{
     int n_e_delivered; //Número total de encomendas entregues
     int n_p_delivered; //Número total de produtos entregues
     float average_time; //Tempo médio de conclusão de uma encomenda
+    int world_cord_x; //coordenadas do mundo
+    int world_cord_y; //cord do mundo
+    int n_drones; //numero de drones
+    int S, Q, T; //unidades de tempo
+    Warehouse **wArray; //array de warehouses
+    ProductList prodList; //array de produtos
+    ProductTypeList prodType; //array de tipo de produtos
 }Stats;
 Stats *stats_ptr;
 

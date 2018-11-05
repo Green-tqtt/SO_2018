@@ -1,30 +1,8 @@
 #include "header.h"
-int world_cord_x;
-int world_cord_y;
-int n_drones;
-int S, Q, T;
-Warehouse **warehouseArray;
-ProductTypeList productType;
-ProductList prodList;
 int shmid; 
 Stats *stats_ptr;
 pthread_t drone_thread[4]; //Número de Drones
 int power = 1;
-
-int main(){
-	signal(SIGINT, signal_handler);
-    
-    printf("oi");
-
-    read_config();
-    create_thread_pool();
-    create_shared_memory();
-    create_process();
-    while(power){
-
-
-    }
-}
 
 void signal_handler(int signum){
     while(wait(NULL)>0);
@@ -95,6 +73,13 @@ void create_shared_memory(){
     stats_ptr->n_e_delivered=0;
     stats_ptr->n_p_delivered=0;
     stats_ptr->average_time=0.0;
+    stats_ptr->n_drones = 0;
+    stats_ptr->Q = 0;
+    stats_ptr->S = 0;
+    stats_ptr->T = 0;
+    stats_ptr->world_cord_x = 0;
+    stats_ptr->world_cord_y = 0;
+ 
     //Dados teste
 
     printf("----------RESULTS----------\n");
@@ -144,10 +129,10 @@ void read_config(){
         token[strlen(token)-1] = '\0';
         }
     strcpy(wc_y, token);
-    world_cord_x = atoi(wc_x);
-    world_cord_x = atoi(wc_y);
+    stats_ptr->world_cord_x = atoi(wc_x);
+    stats_ptr->world_cord_y = atoi(wc_y);
     char p_name[50];
-    productType = create_product_type_list();
+    stats_ptr->prodType = create_product_type_list();
     fgets(line, sizeof(line), fp);
     //ir buscar primeira ","
     token = strtok(line, ",");
@@ -159,24 +144,24 @@ void read_config(){
             token[strlen(token)-1] = '\0';
         }
         strcpy(p_name, token);
-        insert_product_type(p_name, productType);
+        insert_product_type(p_name, stats_ptr->prodType);
         token = strtok(NULL, ",");
     }
  
     fgets(line, sizeof(line), fp);
     token = strtok(line, "\n");
-    n_drones = atoi(token);
+    stats_ptr->n_drones = atoi(token);
  
     fgets(line, sizeof(line), fp);
     token = strtok(line, ",");
-    S = atoi(token);
+    stats_ptr->S = atoi(token);
  
     fgets(line, sizeof(line), fp);
     token = strtok(NULL, ",");
     if(token[0] == ' '){
         token++;
     }
-    Q = atoi(token);
+    stats_ptr->Q = atoi(token);
  
     fgets(line, sizeof(line), fp);
     token = strtok(NULL, ",");
@@ -186,14 +171,14 @@ void read_config(){
     if(token[strlen(token)-1] == '\n'){
         token[strlen(token)-1] = '\0';
     }
-    T = atoi(token);
+    stats_ptr->T = atoi(token);
     token = strtok(line, "\n");
  
    
     n_warehouses = atoi(token);
  
-    warehouseArray = malloc(n_warehouses * sizeof(Warehouse*));
-    prodList = create_product_list();
+    stats_ptr->wArray= malloc(n_warehouses * sizeof(Warehouse*));
+    stats_ptr->prodList = create_product_list();
     int quantity;
     //meter num for
     char prodName[50];
@@ -208,14 +193,14 @@ void read_config(){
             h->w_x = atof(token);
             token = strtok(NULL, " ");
             h->w_y = atof(token);
-            warehouseArray[i] = h;
+            stats_ptr->wArray[i] = h;
             token = strtok(NULL, ": ");
             while(token != NULL){
                 token = strtok(NULL, ", ");
                 strcpy(prodName, token);
                 token = strtok(NULL, ", ");
                 quantity = atoi(token);
-                insert_product(prodName, quantity, h->w_name, prodList);
+                insert_product(prodName, quantity, h->w_name, stats_ptr->prodList);
                 if(token[strlen(token)-1] == '\n'){
                     token[strlen(token)-1] = '\0';
                     token = NULL;
@@ -317,24 +302,32 @@ void list_product(ProductList product){
     }
 }
 
-void create_process(){
-    
-    pid_t pid;
-    pid = fork();
-
-    if(pid == 0){
-        warehouse_activity();
+int main(){
+	/*signal(SIGINT, signal_handler);
+    printf("oi");
+    read_config();
+    create_thread_pool();
+    create_shared_memory();
+    create_process();
+    while(power){
+    }*/
+    /*pid_t pid = getpid();
+    printf("Main PID: %d\n", pid);
+    int forkVal = fork();
+    if(forkVal == 0){
+        //child, chamar funcao que cria processos
+        exit(0);
+    }
+    else if (forkVal < 0){
+        perror("Error creating process\n");
+        exit(0);
     }
     else{
-        central();
-    }
-
-}
-
-void warehouse_activity(){
-    printf("\n---Warehouse created---\n");
-}
-
-void central(){
-    printf("\n---Central Working---");
+        //parent process, chamar processo Central
+        printf("I'm main again my pid is %d\n", getpid());
+        //waits for child process
+        wait(NULL);
+    }*/
+    create_shared_memory();
+    read_config();
 }
