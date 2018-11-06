@@ -354,13 +354,9 @@ void warehouse(){
 //------CENTRAL PROCESS-----//
 void *drone_handler(void *id){
     int i = *(int*)id;
-    int flag = 1;
-    while(flag != 0){
-        printf("[%d] Drone doing stuff\n", drone_id[i]);
-        sleep(5);
-        printf("[%d] I'm done\n", drone_id[i]);
-        flag = 0;
-    }
+    printf("[%d] Drone doing stuff\n", drone_id[i]);
+    sleep(5);
+    printf("[%d] I'm done\n", drone_id[i]);
     pthread_exit(NULL);
 }
 
