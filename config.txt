@@ -1,6 +1,6 @@
 1280, 800
 Prod_A, Prod_B, Prod_C, Prod_D
-20
+5
 10, 20, 1
 
 2

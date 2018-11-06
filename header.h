@@ -19,27 +19,29 @@
 #ifndef SO2018_DRONE_MOVEMENT_H
 #define SO2018_DRONE_MOVEMENT_H
 
-#include <signal.h>
-#include <semaphore.h>
-#include <fcntl.h>
 #include <stdio.h>
-#include <sys/types.h> 
+#include <sys/types.h>
 #include <sys/socket.h>
+#include <errno.h>
 #include <netinet/in.h>
+#include <ctype.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <semaphore.h>
 #include <ctype.h>
 #include <sys/stat.h>
+#include <time.h>
+#include <sys/msg.h>
 #include <pthread.h>
 #include <sys/wait.h>
 #include <stdlib.h>
+#include <fcntl.h>
 #include <string.h>
 #include <signal.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
-#include <math.h>
-
-
+#include <sys/timeb.h>
+#define PIPE_NAME "input_pipe"
 #define DISTANCE 1
 
 
@@ -63,7 +65,6 @@ typedef struct product{
     char p_name[50];
     int quantity;
     //em que warehouse é que esse produto está
-    char w_name[50];
 }Product;
 //pointer para a struct product
 Product *pw_ptr;
@@ -80,6 +81,8 @@ typedef struct warehouse{
     char w_name[50];
     float w_x;
     float w_y;
+    int w_no;
+    ProductList prodList;
 }Warehouse;
 //pointer para a struct warehouse
 Warehouse *w_ptr;
@@ -110,8 +113,8 @@ typedef struct stats{
     int world_cord_y; //cord do mundo
     int n_drones; //numero de drones
     int S, Q, T; //unidades de tempo
+    int n_warehouses; //numero de warehouses
     Warehouse **wArray; //array de warehouses
-    ProductList prodList; //array de produtos
     ProductTypeList prodType; //array de tipo de produtos
 }Stats;
 Stats *stats_ptr;
@@ -154,7 +157,7 @@ ProductTypeList create_product_type_list(void);
 void insert_product_type(char p_name[50], ProductTypeList productType);
 void list_product_types(ProductTypeList productType);
 ProductList create_product_list(void);
-void insert_product(char p_name[50], int quantity, char w_name[50], ProductList prodList);
+void insert_product(char p_name[50], int quantity, ProductList prodList);
 int check_prod_type(char p_name[50], ProductTypeList productType);
 void list_product(ProductList product);
 void create_process();

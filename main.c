@@ -1,61 +1,13 @@
 #include "header.h"
-int shmid; 
+int shmid;
+int fd; 
 Stats *stats_ptr;
-pthread_t drone_thread[4]; //Número de Drones
 int power = 1;
+pthread_t *drone_threads;
+int *drone_id;
 
-void signal_handler(int signum){
-    while(wait(NULL)>0);
-    //shutdown_semaphores();
-    //stats_results();
-    power = 0;
-    destroy_shared_memory();
-    destroy_thread_pool();
-    kill(0, SIGKILL);
-    exit(0);
-}
 
-void create_thread_pool(){
-	int i;
-    int drone_id[4]; // Número de Drones
-    for(i = 0; i < 4; i++){
-        drone_id[i] = i;
-        if(pthread_create(&drone_thread[i], NULL, drone_action, &drone_id[i])==0){
-            printf("Drone thread %d was created\n", drone_id[i]);
-            //drone_stats();
-        }
-        else{
-            perror("Error creating Drone thread\n");
-        }
-    }
-}
-
-void destroy_thread_pool(){
-	int drone_id[4];
-	int i;
-    for(i = 0; i < 4; i++){
-        drone_id[i] = i;
-        if(pthread_join(drone_thread[i], NULL)==0){
-            printf("Drone thread %d was killed\n", drone_id[i]);
-        }
-        else{
-            perror("Error killing Drone thread\n");
-        }
-    }
-
-}
-
-void *drone_action(){
-    printf("Hello! I'm a thread!\n");
-    printf("Tchillando\n");
-    while(power){
-
-    }
-    printf("Ja nao tchillo nada\n");
-    printf("Thread is leaving... :(\n");
-    pthread_exit(NULL);
-}
-
+//------SHARED MEMORY------//
 void create_shared_memory(){
     if((shmid = shmget(IPC_PRIVATE, sizeof(Stats), IPC_CREAT |0766)) == -1){
         perror("Error creating shared memory\n");   
@@ -79,6 +31,7 @@ void create_shared_memory(){
     stats_ptr->T = 0;
     stats_ptr->world_cord_x = 0;
     stats_ptr->world_cord_y = 0;
+    stats_ptr->n_warehouses = 0;
  
     //Dados teste
 
@@ -101,6 +54,33 @@ void destroy_shared_memory(){
         perror("Error unmapping shared memory\n");
     }
     printf("Sucessfully shmctl'd\n");
+}
+
+void signal_handler(int signum){
+    while(wait(NULL)>0);
+    //shutdown_semaphores();
+    //stats_results();
+    power = 0;
+    destroy_shared_memory();
+    destroy_thread_pool();
+    kill(0, SIGKILL);
+    exit(0);
+}
+
+void destroy_thread_pool(){
+	int drone_id[4];
+    pthread_t drone_thread[stats_ptr->n_drones];
+	int i;
+    for(i = 0; i < 4; i++){
+        drone_id[i] = i;
+        if(pthread_join(drone_thread[i], NULL)==0){
+            printf("Drone thread %d was killed\n", drone_id[i]);
+        }
+        else{
+            perror("Error killing Drone thread\n");
+        }
+    }
+
 }
 
 
@@ -174,12 +154,12 @@ void read_config(){
     stats_ptr->T = atoi(token);
     token = strtok(line, "\n");
  
-   
     n_warehouses = atoi(token);
+    stats_ptr->n_warehouses = n_warehouses;
  
     stats_ptr->wArray= malloc(n_warehouses * sizeof(Warehouse*));
-    stats_ptr->prodList = create_product_list();
     int quantity;
+    int checkProdType;
     //meter num for
     char prodName[50];
     fflush(stdin);
@@ -187,20 +167,24 @@ void read_config(){
         if(fgets(line, sizeof(line), fp) != NULL){
             token = strtok(line, " ");
             Warehouse *h = (Warehouse*) malloc(sizeof(Warehouse));
-            strcpy(h->w_name, token);
             token = strtok(NULL, "; ");
             token = strtok(NULL, ",");
             h->w_x = atof(token);
             token = strtok(NULL, " ");
             h->w_y = atof(token);
             stats_ptr->wArray[i] = h;
+            stats_ptr->wArray[i]->prodList = create_product_list();
             token = strtok(NULL, ": ");
             while(token != NULL){
                 token = strtok(NULL, ", ");
                 strcpy(prodName, token);
                 token = strtok(NULL, ", ");
                 quantity = atoi(token);
-                insert_product(prodName, quantity, h->w_name, stats_ptr->prodList);
+                checkProdType = check_prod_type(prodName, stats_ptr->prodType);
+                if(checkProdType == 0){
+                    printf("%s is not initialized in config.txt, this may bring problems in the long run.\n", prodName);
+                }
+                insert_product(prodName, quantity, stats_ptr->wArray[i]->prodList);
                 if(token[strlen(token)-1] == '\n'){
                     token[strlen(token)-1] = '\0';
                     token = NULL;
@@ -210,10 +194,37 @@ void read_config(){
         }
     }
     fclose(fp);
+    //DEBUG
+    /*printf("\t\tPROD TYPES\n");
+    list_product_types(stats_ptr->prodType);
+    printf("\t\tWAREHOUSE LIST\n");
+    for(int i=0; i<n_warehouses; i++){
+        printf("W_NAME: %s\n", stats_ptr->wArray[i]->w_name);
+        printf("W_XY: %f\n", stats_ptr->wArray[i]->w_x);
+        printf("W_NAME: %f\n", stats_ptr->wArray[i]->w_y);
+        printf("\t\tPRODUCT LIST\n");
+        list_product(stats_ptr->wArray[i]->prodList);
+        printf("\n");
+    }*/
+
 }
 
+void create_named_pipe(){
+    if((mkfifo(PIPE_NAME, O_CREAT|O_EXCL|0600)<0) && (errno!= EEXIST)){
+        perror("Error creating named pipe: ");
+        exit(0);
+    }
 
+    printf("Named pipe successfully created\n");
 
+    if((fd = open(PIPE_NAME, O_RDONLY))< 0){
+        perror("Error opening pipe for reading: ");
+        exit(0);
+    }
+
+}
+
+//------LIST STUFF------//
 //cria lista ligada de product types
 ProductTypeList create_product_type_list(void){
  
@@ -230,7 +241,7 @@ ProductTypeList create_product_type_list(void){
 //insere product no array list de product types
 void insert_product_type(char p_name[50], ProductTypeList productType){
     ProductTypeList insertProduct;
-    ProductTypeList atual = productType;;
+    ProductTypeList atual = productType;
     insertProduct = malloc(sizeof(type_node));
     while(atual->next!= NULL){
         atual = atual->next;
@@ -263,7 +274,7 @@ ProductList create_product_list(void){
     return prod_node;
 }
  
-void insert_product(char p_name[50], int quantity, char w_name[50], ProductList prodList){
+void insert_product(char p_name[50], int quantity, ProductList prodList){
     ProductList insertProd;
     ProductList atual = prodList;
     insertProd = malloc(sizeof(product_node));
@@ -272,7 +283,6 @@ void insert_product(char p_name[50], int quantity, char w_name[50], ProductList 
     }
     strcpy(insertProd->product.p_name, p_name);
     insertProd->product.quantity = quantity;
-    strcpy(insertProd->product.w_name, w_name);
     atual->next = insertProd;
     insertProd->next = NULL;
     printf("Inserted %s into the linked list\n", insertProd->product.p_name);
@@ -297,10 +307,77 @@ void list_product(ProductList product){
     while(node != NULL){
         printf("Prod: %s\n", node->product.p_name);
         printf("Quantity: %d\n", node->product.quantity);
-        printf("W_Name: %s\n", node->product.w_name);
         node = node->next;
     }
 }
+
+//------WAREHOUSE PROCESS-----//
+void warehouse_handler(int i){
+    stats_ptr->wArray[i]->w_no = getpid();
+    printf("[%d] Hello! I'm a warehouse!\n", getpid());
+    /*printf("W_NAME: %s\n", stats_ptr->wArray[i]->w_name);
+    printf("W_XY: %f\n", stats_ptr->wArray[i]->w_x);
+    printf("W_NAME: %f\n", stats_ptr->wArray[i]->w_y);
+    printf("W_NO: %d\n", stats_ptr->wArray[i]->w_no);
+    printf("\t\tPRODUCT LIST\n");
+    list_product(stats_ptr->wArray[i]->prodList);
+    printf("\n");*/
+    printf("[%d] Goodbye!\n", getpid());
+    exit(0);
+}
+
+void warehouse(){
+    pid_t pid = getpid();
+    int forkVal;
+    for(int i=0; i<stats_ptr->n_warehouses; i++){
+        forkVal = fork();
+        if(forkVal == 0){
+            pid = getpid();
+            printf("[%d] Warehouse %d is active\n", getpid(), i+1);
+            stats_ptr->wArray[i]->w_no = getpid();
+            //chama função worker
+            warehouse_handler(i);
+            exit(0);
+        }
+        else if (forkVal < 0){
+        perror("Error creating process\n");
+        exit(0);
+    }
+    else{
+        wait(NULL);
+    }
+
+
+    }
+}
+
+//------CENTRAL PROCESS-----//
+void *drone_action(void *id){
+    int i = *(int*)id;
+    printf("Hello! I'm a thread! %d\n", drone_id[i]);
+    printf("Tchillando %d\n", drone_id[i]);
+    sleep(5);
+    printf("Ja nao tchillo nada %d\n", drone_id[i]);
+    printf("Thread is leaving... :( %d\n", drone_id[i]);
+    exit(0);
+}
+
+void central(){
+	int i;
+    drone_threads = malloc(sizeof(pthread_t)*stats_ptr->n_drones);
+    drone_id = malloc(sizeof(int)*stats_ptr->n_drones);
+    for(i = 1; i <= stats_ptr->n_drones; i++){
+        drone_id[i] = i;
+        if(pthread_create(&drone_threads[i], NULL, drone_action, &drone_id[i])==0){
+            printf("Drone thread %d is active\n", drone_id[i]);
+        }
+        else{
+            perror("Error creating Drone thread\n");
+        }
+    }
+    pthread_exit(NULL);
+}
+
 
 int main(){
 	/*signal(SIGINT, signal_handler);
@@ -311,11 +388,17 @@ int main(){
     create_process();
     while(power){
     }*/
-    /*pid_t pid = getpid();
-    printf("Main PID: %d\n", pid);
+    printf("Simulation manager started\n");
+    create_shared_memory();
+    //create_named_pipe();
+    read_config();
+
+    pid_t pid = getpid();
+    printf("SM PID: %d\n", pid);
     int forkVal = fork();
     if(forkVal == 0){
-        //child, chamar funcao que cria processos
+        //child, chamar funcao que cria threads
+        central();
         exit(0);
     }
     else if (forkVal < 0){
@@ -323,11 +406,10 @@ int main(){
         exit(0);
     }
     else{
-        //parent process, chamar processo Central
-        printf("I'm main again my pid is %d\n", getpid());
+        //parent process, chamar processo warehouse
+        warehouse();
         //waits for child process
         wait(NULL);
-    }*/
-    create_shared_memory();
-    read_config();
+    }
+    destroy_shared_memory();
 }
