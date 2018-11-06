@@ -352,14 +352,27 @@ void warehouse(){
 }
 
 //------CENTRAL PROCESS-----//
-void *drone_action(void *id){
+void *drone_handler(void *id){
     int i = *(int*)id;
-    printf("Hello! I'm a thread! %d\n", drone_id[i]);
-    printf("Tchillando %d\n", drone_id[i]);
-    sleep(5);
-    printf("Ja nao tchillo nada %d\n", drone_id[i]);
-    printf("Thread is leaving... :( %d\n", drone_id[i]);
-    exit(0);
+    int flag = 1;
+    while(flag != 0){
+        printf("[%d] Drone doing stuff\n", drone_id[i]);
+        sleep(5);
+        printf("[%d] I'm done\n", drone_id[i]);
+        flag = 0;
+    }
+    pthread_exit(NULL);
+}
+
+void kill_threads(){
+    for(int i=1; i<=stats_ptr->n_drones; i++){
+        if(pthread_join(drone_threads[i], NULL)==0){
+            printf("[%d] Drone thread has finished\n", drone_id[i]);
+        }
+        else{
+            perror("Error killing Drone thread\n");
+        }
+    }
 }
 
 void central(){
@@ -368,14 +381,13 @@ void central(){
     drone_id = malloc(sizeof(int)*stats_ptr->n_drones);
     for(i = 1; i <= stats_ptr->n_drones; i++){
         drone_id[i] = i;
-        if(pthread_create(&drone_threads[i], NULL, drone_action, &drone_id[i])==0){
-            printf("Drone thread %d is active\n", drone_id[i]);
+        if(pthread_create(&drone_threads[i], NULL, drone_handler, &drone_id[i])==0){
+            printf("[%d] Drone is active\n", drone_id[i]);
         }
         else{
             perror("Error creating Drone thread\n");
         }
     }
-    pthread_exit(NULL);
 }
 
 
@@ -399,7 +411,7 @@ int main(){
     if(forkVal == 0){
         //child, chamar funcao que cria threads
         central();
-        exit(0);
+        kill_threads();
     }
     else if (forkVal < 0){
         perror("Error creating process\n");
@@ -408,8 +420,8 @@ int main(){
     else{
         //parent process, chamar processo warehouse
         warehouse();
-        //waits for child process
         wait(NULL);
+        destroy_shared_memory();
+        //waits for child process
     }
-    destroy_shared_memory();
 }

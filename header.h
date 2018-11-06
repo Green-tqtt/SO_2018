@@ -103,6 +103,12 @@ typedef struct drone{
 }Drone;
 Drone *drone_ptr;
 
+typedef struct Drone_node *DroneList;
+typedef struct Drone_node{
+    Drone drone;
+    DroneList next;
+}drone_node;
+
 typedef struct stats{
     int n_e_drones; //Número total de encomendas atribuidas a drones
     int n_p_warehouse; // Número total de produtos carregados de armazéns
@@ -115,7 +121,9 @@ typedef struct stats{
     int S, Q, T; //unidades de tempo
     int n_warehouses; //numero de warehouses
     Warehouse **wArray; //array de warehouses
-    ProductTypeList prodType; //array de tipo de produtos
+    ProductTypeList prodType; //lista ligada de tipo de produtos
+    DroneList droneList; //lista ligada de drones
+
 }Stats;
 Stats *stats_ptr;
 
