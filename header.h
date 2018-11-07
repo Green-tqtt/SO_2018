@@ -41,6 +41,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/timeb.h>
+#include <math.h>
 #define PIPE_NAME "input_pipe"
 #define DISTANCE 1
 
@@ -78,16 +79,18 @@ typedef struct Product_node{
 
 //struct de return apos uma pesquisa de uma warehouse com a encomenda e escolhido um drone
 typedef struct searchResult{
-    int drone_id, w_x, w_y;
+    int drone_id;
+    double w_x, w_y;
     char w_name[50];
+    double distance;
 
 }SearchResult;
 
 //cada warehouse vai ter a sua lista ligada de produtos com o seu nome e a sua quantidade
 typedef struct warehouse{
     char w_name[50];
-    float w_x;
-    float w_y;
+    double w_x;
+    double w_y;
     int w_no;
     ProductList prodList;
 }Warehouse;
@@ -98,15 +101,15 @@ typedef struct package{
     int uid;
     char prod_type[50];
     int quantity;
-    float deliver_x;
-    float deliver_y;
+    double deliver_x;
+    double deliver_y;
 }Package;
 Package *pack_ptr;
 
 typedef struct drone{
     int drone_id;
     int state;
-    float d_x, d_y, dest_x, dest_y;
+    double d_x, d_y, dest_x, dest_y;
 }Drone;
 Drone *drone_ptr;
 
