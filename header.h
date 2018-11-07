@@ -76,6 +76,13 @@ typedef struct Product_node{
     ProductList next;
 }product_node;
 
+//struct de return apos uma pesquisa de uma warehouse com a encomenda e escolhido um drone
+typedef struct searchResult{
+    int drone_id, w_x, w_y;
+    char w_name[50];
+
+}SearchResult;
+
 //cada warehouse vai ter a sua lista ligada de produtos com o seu nome e a sua quantidade
 typedef struct warehouse{
     char w_name[50];

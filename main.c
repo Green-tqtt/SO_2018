@@ -9,6 +9,9 @@ int retStat;
 pid_t wpid;
 int status = 0;
 
+//TEST DATA//
+char type_test[50] = "Prod_D";
+int quantity_test = 7;
 
 //------SHARED MEMORY------//
 void create_shared_memory(){
@@ -170,6 +173,7 @@ void read_config(){
         if(fgets(line, sizeof(line), fp) != NULL){
             token = strtok(line, " ");
             Warehouse *h = (Warehouse*) malloc(sizeof(Warehouse));
+            strcpy(h->w_name, token);
             token = strtok(NULL, "; ");
             token = strtok(NULL, ",");
             h->w_x = atof(token);
@@ -276,6 +280,35 @@ ProductList create_product_list(void){
     printf("List created\n");
     return prod_node;
 }
+
+//lista ligada de drones
+DroneList create_drone_list(void){
+ 
+    DroneList d_node;
+    d_node = (DroneList) malloc(sizeof(drone_node));
+ 
+    if(d_node != NULL){
+        d_node->next = NULL;
+    }
+    printf("List created\n");
+    return d_node;
+}
+
+void insert_drone(int drone_id, int d_x, int d_y, DroneList droneList){
+    DroneList insertDrone;
+    DroneList atual = droneList;
+    insertDrone = malloc(sizeof(drone_node));
+    while(atual->next!= NULL){
+        atual = atual->next;
+    }
+    insertDrone->drone.d_x = d_x;
+    insertDrone->drone.d_y = d_y;
+    insertDrone->drone.state = 0;
+    insertDrone->drone.drone_id = drone_id;
+    atual->next = insertDrone;
+    insertDrone->next = NULL;
+    printf("Inserted %d into the linked list\n", insertDrone->drone.drone_id);
+}
  
 void insert_product(char p_name[50], int quantity, ProductList prodList){
     ProductList insertProd;
@@ -337,7 +370,7 @@ void warehouse(){
         forkVal = fork();
         if(forkVal == 0){
             pid = getpid();
-            printf("[%d] Warehouse %d is active\n", getpid(), i+1);
+            printf("[%d] Warehouse %d is active\n", getpid(), i);
             stats_ptr->wArray[i]->w_no = getpid();
             //chama função worker
             warehouse_handler(i);
@@ -347,7 +380,6 @@ void warehouse(){
         exit(0);
         }
     }
-    //while((wpid = wait(&status) > 0));
 }
 
 //------CENTRAL PROCESS-----//
@@ -360,7 +392,7 @@ void *drone_handler(void *id){
 }
 
 void kill_threads(){
-    for(int i=1; i<=stats_ptr->n_drones; i++){
+    for(int i=0; i<stats_ptr->n_drones; i++){
         if(pthread_join(drone_threads[i], NULL)==0){
             printf("[%d] Drone thread has finished\n", drone_id[i]);
         }
@@ -370,11 +402,75 @@ void kill_threads(){
     }
 }
 
+void drones_init(){
+    time_t t;
+    srand((unsigned) time(&t));
+    stats_ptr->droneList= create_drone_list();
+    int random_num;
+    int base_x, base_y, drone_id;
+    for(int i=0; i<stats_ptr->n_drones; i++){
+        random_num = 1 + rand() % 4;
+        drone_id = i;
+        if(i == 1){
+            base_x = 0;
+            base_y = stats_ptr->world_cord_y;
+        }
+        else if(i == 2){
+            base_x = stats_ptr->world_cord_x;
+            base_y = stats_ptr->world_cord_y;
+        }
+        else if(i == 3){
+            base_x = 0;
+            base_y = 0;
+        }
+        else{
+            base_x = stats_ptr->world_cord_x;
+            base_y = 0;
+        }
+        insert_drone(drone_id, base_x, base_y, stats_ptr->droneList);
+    }
+
+}
+
+SearchResult choose_drone(){
+    //sem
+    int counter=0;
+    SearchResult *search_result = malloc(sizeof(SearchResult));
+    for(int i=0; i<stats_ptr->n_warehouses; i++){
+        while(stats_ptr->wArray[i]->prodList!= NULL){
+            if(strcmp(stats_ptr->wArray[i]->prodList->product.p_name, type_test) == 0 && stats_ptr->wArray[i]->prodList->product.quantity >= quantity_test){
+                printf("\t\tPRODUCT %s IS AVAILABLE AT %s\n", type_test, stats_ptr->wArray[i]->w_name);
+                printf("Calculating distance...");
+                while(stats_ptr->droneList!= NULL){
+                    double dist_result = 0;
+                    double prev_dist = 0;
+                    int result_id;
+                    if(stats_ptr->droneList->drone.state == 0){
+                        dist_result = distance(stats_ptr->droneList->drone.d_x, stats_ptr->droneList->drone.d_y, stats_ptr->wArray[i]->w_x, stats_ptr->wArray[i]->w_y);
+                        if(prev_dist == 0 || prev_dist > dist_result){
+                            prev_dist = dist_result;
+                            result_id = stats_ptr->droneList->drone.drone_id;
+                            search_result->drone_id = drone_id;
+                            strcpy(search_result->w_name, stats_ptr->wArray[i]->w_name);
+                            search_result->w_x = stats_ptr->wArray[i]->w_x;
+                            search_result->w_y = stats_ptr->wArray[i]->w_y;
+                        }
+                    }
+                    stats_ptr->droneList = stats_ptr->droneList->next;
+                }
+            }
+            stats_ptr->wArray[i]->prodList = stats_ptr->wArray[i]->prodList->next;
+        }
+    }
+    return *search_result;
+}
 void central(){
 	int i;
+    drones_init();
     drone_threads = malloc(sizeof(pthread_t)*stats_ptr->n_drones);
     drone_id = malloc(sizeof(int)*stats_ptr->n_drones);
-    for(i = 1; i <= stats_ptr->n_drones; i++){
+    SearchResult *search_result = malloc(sizeof(SearchResult));
+    for(i = 0; i < stats_ptr->n_drones; i++){
         drone_id[i] = i;
         if(pthread_create(&drone_threads[i], NULL, drone_handler, &drone_id[i])==0){
             printf("[%d] Drone is active\n", drone_id[i]);
@@ -383,6 +479,8 @@ void central(){
             perror("Error creating Drone thread\n");
         }
     }
+    *search_result = choose_drone();
+
 }
 
 
