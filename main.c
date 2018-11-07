@@ -5,6 +5,9 @@ Stats *stats_ptr;
 int power = 1;
 pthread_t *drone_threads;
 int *drone_id;
+int retStat;
+pid_t wpid;
+int status = 0;
 
 
 //------SHARED MEMORY------//
@@ -322,6 +325,7 @@ void warehouse_handler(int i){
     printf("\t\tPRODUCT LIST\n");
     list_product(stats_ptr->wArray[i]->prodList);
     printf("\n");*/
+    sleep(3);
     printf("[%d] Goodbye!\n", getpid());
     exit(0);
 }
@@ -337,18 +341,13 @@ void warehouse(){
             stats_ptr->wArray[i]->w_no = getpid();
             //chama função worker
             warehouse_handler(i);
-            exit(0);
         }
         else if (forkVal < 0){
         perror("Error creating process\n");
         exit(0);
+        }
     }
-    else{
-        wait(NULL);
-    }
-
-
-    }
+    //while((wpid = wait(&status) > 0));
 }
 
 //------CENTRAL PROCESS-----//
@@ -416,8 +415,10 @@ int main(){
     else{
         //parent process, chamar processo warehouse
         warehouse();
-        wait(NULL);
+        //waits to child process
+        for(int i=0; i<stats_ptr->n_warehouses + 1; i++){
+            wait(NULL);
+        }
         destroy_shared_memory();
-        //waits for child process
     }
 }
