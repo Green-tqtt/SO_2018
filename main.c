@@ -40,6 +40,9 @@ void create_shared_memory(){
     stats_ptr->world_cord_x = 0;
     stats_ptr->world_cord_y = 0;
     stats_ptr->n_warehouses = 0;
+    stats_ptr->droneList = NULL;
+    stats_ptr->prodType = NULL;
+    stats_ptr->wArray = NULL;
  
     //Dados teste
 
@@ -400,21 +403,19 @@ void *drone_handler(void *id){
     int sleep_count=0;
     Drone myDrone;
     SearchResult *handler_check;
-    Drone first_node = stats_ptr->droneList->drone;
+    DroneList aux_node = stats_ptr->droneList->next;
     while(inside_id != i){
-        inside_id = stats_ptr->droneList->drone.drone_id;
+        inside_id = aux_node->drone.drone_id;
         if(inside_id == i){
-            myDrone = stats_ptr->droneList->drone;
+            myDrone = aux_node->drone;
             break;
         }
-        stats_ptr->droneList = stats_ptr->droneList->next;
+        aux_node = aux_node->next;
     }
-    stats_ptr->droneList->drone = first_node;
 
     printf("[%d] Awaiting orders... \n", myDrone.drone_id);
     while(myDrone.state == 0){
         handler_check = search_result;
-        printf("Handler check: %s\n", handler_check->w_name);
         if(handler_check->drone_id == myDrone.drone_id){
             printf("[%d] An order has arrived for me!\n", myDrone.drone_id);
             myDrone.state = 1;
@@ -487,8 +488,8 @@ SearchResult choose_drone(){
     double dist_result = 0;
     double prev_dist = 0;
     int result_id = 0;
-    DroneList aux_drone_node = stats_ptr->droneList;
-    DroneList aux_first_node = stats_ptr->droneList;
+    DroneList aux_drone_node = stats_ptr->droneList->next;
+    DroneList aux_first_node = stats_ptr->droneList->next;
     Stats *aux_stats_ptr = stats_ptr;
     for(int i=0; i<stats_ptr->n_warehouses; i++){
         while(aux_stats_ptr->wArray[i]->prodList != NULL){
