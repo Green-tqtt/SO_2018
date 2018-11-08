@@ -393,19 +393,6 @@ void warehouse(){
     }
 }
 
-int search_state_alteration(Drone myDrone){
-    while(stats_ptr->droneList!= NULL){
-        if(stats_ptr->droneList->drone.drone_id == myDrone.drone_id){
-            if(stats_ptr->droneList->drone.state != myDrone.state){
-                //state changed
-                return 1;
-            }
-        }
-        stats_ptr->droneList = stats_ptr->droneList->next;
-    }
-    return 0;
-}
-
 //------CENTRAL PROCESS-----//
 void *drone_handler(void *id){
     int i = *(int*)id;
@@ -427,6 +414,7 @@ void *drone_handler(void *id){
     printf("[%d] Awaiting orders... \n", myDrone.drone_id);
     while(myDrone.state == 0){
         handler_check = search_result;
+        printf("Handler check: %s\n", handler_check->w_name);
         if(handler_check->drone_id == myDrone.drone_id){
             printf("[%d] An order has arrived for me!\n", myDrone.drone_id);
             myDrone.state = 1;
@@ -499,33 +487,36 @@ SearchResult choose_drone(){
     double dist_result = 0;
     double prev_dist = 0;
     int result_id = 0;
-    DroneList first_node = stats_ptr->droneList;
+    DroneList aux_drone_node = stats_ptr->droneList;
+    DroneList aux_first_node = stats_ptr->droneList;
+    Stats *aux_stats_ptr = stats_ptr;
     for(int i=0; i<stats_ptr->n_warehouses; i++){
-        while(stats_ptr->wArray[i]->prodList!= NULL){
-            if(strcmp(stats_ptr->wArray[i]->prodList->product.p_name, type_test) == 0 && stats_ptr->wArray[i]->prodList->product.quantity >= quantity_test){
-                printf("\t\tPRODUCT %s IS AVAILABLE AT %s\n", type_test, stats_ptr->wArray[i]->w_name);
+        while(aux_stats_ptr->wArray[i]->prodList != NULL){
+            if(strcmp(aux_stats_ptr->wArray[i]->prodList->product.p_name, type_test) == 0 && aux_stats_ptr->wArray[i]->prodList->product.quantity >= quantity_test){
+                printf("\t\tPRODUCT %s IS AVAILABLE AT %s\n", type_test, aux_stats_ptr->wArray[i]->w_name);
                 printf("Calculating distance...\n");
-                while(stats_ptr->droneList->next!= NULL){
-                    if(stats_ptr->droneList->next->drone.state == 0){
-                        dist_result = distance(stats_ptr->droneList->next->drone.d_x, stats_ptr->droneList->next->drone.d_y, stats_ptr->wArray[i]->w_x, stats_ptr->wArray[i]->w_y);
+                //alguma cena é um next aqui
+                while(aux_drone_node != NULL){
+                    if(aux_drone_node->drone.state == 0){
+                        dist_result = distance(aux_drone_node->drone.d_x, aux_drone_node->drone.d_x, aux_stats_ptr->wArray[i]->w_x, aux_stats_ptr->wArray[i]->w_y);
                         printf("Distance: %f\n", dist_result);
-                        printf("Drone: %d\n", stats_ptr->droneList->next->drone.drone_id);
+                        printf("Drone: %d\n", aux_drone_node->drone.drone_id);
                         printf("\n");
                         if(prev_dist == 0 || prev_dist > dist_result){
                             prev_dist = dist_result;
-                            result_id = stats_ptr->droneList->next->drone.drone_id;
+                            result_id = aux_drone_node->drone.drone_id;
                             search_result->drone_id = result_id;
-                            strcpy(search_result->w_name, stats_ptr->wArray[i]->w_name);
-                            search_result->w_x = stats_ptr->wArray[i]->w_x;
-                            search_result->w_y = stats_ptr->wArray[i]->w_y;
+                            strcpy(search_result->w_name, aux_stats_ptr->wArray[i]->w_name);
+                            search_result->w_x = aux_stats_ptr->wArray[i]->w_x;
+                            search_result->w_y = aux_stats_ptr->wArray[i]->w_y;
                             search_result->distance = dist_result;
                         }
                     }
-                    stats_ptr->droneList = stats_ptr->droneList->next;
+                    aux_drone_node = aux_drone_node->next;
                 }
-                stats_ptr->droneList = first_node;
+                aux_drone_node = aux_first_node;
             }
-            stats_ptr->wArray[i]->prodList = stats_ptr->wArray[i]->prodList->next;
+            aux_stats_ptr->wArray[i]->prodList = aux_stats_ptr->wArray[i]->prodList->next;
         }
     }
     printf("FINAL DISTANCE\n");
@@ -543,7 +534,6 @@ void central(){
     drone_threads = malloc(sizeof(pthread_t)*stats_ptr->n_drones);
     drone_id = malloc(sizeof(int)*stats_ptr->n_drones);
     search_result = malloc(sizeof(SearchResult));
-    *search_result = choose_drone();
     for(i = 0; i < stats_ptr->n_drones; i++){
         drone_id[i] = i;
         if(pthread_create(&drone_threads[i], NULL, drone_handler, &drone_id[i])==0){
@@ -553,6 +543,7 @@ void central(){
             perror("Error creating Drone thread\n");
         }
     }
+        *search_result = choose_drone();
 
 }
 

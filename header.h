@@ -133,7 +133,6 @@ typedef struct stats{
     Warehouse **wArray; //array de warehouses
     ProductTypeList prodType; //lista ligada de tipo de produtos
     DroneList droneList; //lista ligada de drones
-
 }Stats;
 Stats *stats_ptr;
 
