@@ -163,9 +163,8 @@ double distance(double x1, double y1, double x2, double y2);
  */
 int move_towards(double *drone_x, double *drone_y, double target_x, double target_y);
 
-void signal_handler(int signum);
+//void signal_handler(int signum);
 void create_thread_pool();
-void destroy_thread_pool();
 void *drone_action();
 void create_shared_memory();
 void destroy_shared_memory();

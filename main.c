@@ -10,6 +10,7 @@ int retStat;
 pid_t wpid;
 int status = 0;
 SearchResult *search_result;
+sem_t *access_shared_mem;
 
 //TEST DATA//
 char type_test[50] = "Prod_D";
@@ -55,6 +56,15 @@ void create_shared_memory(){
     printf("---------------------------\n");
 	
 }
+void init_sem(){
+    sem_unlink("access_shared_mem");
+    access_shared_mem = sem_open("access_shared_mem", O_CREAT | O_EXCL, 0700, 1);
+}
+
+void close_sem(){
+    sem_unlink("access_shared_mem");
+    sem_close(access_shared_mem);
+}
 
 void destroy_shared_memory(){
     if(shmdt(stats_ptr) == -1){
@@ -67,7 +77,7 @@ void destroy_shared_memory(){
     printf("Sucessfully shmctl'd\n");
 }
 
-void signal_handler(int signum){
+/*void signal_handler(int signum){
     while(wait(NULL)>0);
     //shutdown_semaphores();
     //stats_results();
@@ -76,24 +86,7 @@ void signal_handler(int signum){
     destroy_thread_pool();
     kill(0, SIGKILL);
     exit(0);
-}
-
-void destroy_thread_pool(){
-	int drone_id[4];
-    pthread_t drone_thread[stats_ptr->n_drones];
-	int i;
-    for(i = 0; i < 4; i++){
-        drone_id[i] = i;
-        if(pthread_join(drone_thread[i], NULL)==0){
-            printf("Drone thread %d was killed\n", drone_id[i]);
-        }
-        else{
-            perror("Error killing Drone thread\n");
-        }
-    }
-
-}
-
+}*/
 
 void read_config(){
     FILE *fp = fopen("config.txt", "r");
@@ -396,13 +389,43 @@ void warehouse(){
     }
 }
 
+void update_order_drones(){
+    sem_wait(access_shared_mem);
+    stats_ptr->n_e_drones++;
+    sem_post(access_shared_mem);
+}
+
+int update_stock(char prod_name[50], int quantity, char w_name[50], int id){
+    Stats *aux_node = stats_ptr;
+    int n_warehouses = stats_ptr->n_warehouses;
+    char prod_cmp[50];
+    char w_cmp[50];
+    for(int i=0; i<n_warehouses; i++){
+        strcpy(w_cmp, aux_node->wArray[i]->w_name);
+        if(strcmp(w_cmp, w_name) == 0){
+            ProductList aux_prod = aux_node->wArray[i]->prodList->next;
+            while(aux_prod != NULL){
+                strcpy(prod_cmp, aux_prod->product.p_name);
+                if(strcmp(prod_cmp, prod_name) == 0){
+                    int new_quantity;
+                    new_quantity = aux_prod->product.quantity - quantity;
+                    aux_prod->product.quantity = new_quantity;
+                    return 1;
+                }
+                aux_prod = aux_prod->next;
+            }
+        }
+    }
+    return 0;
+}
+
 //------CENTRAL PROCESS-----//
 void *drone_handler(void *id){
     int i = *(int*)id;
     int inside_id= -1;
     int sleep_count=0;
     Drone myDrone;
-    SearchResult *handler_check;
+    SearchResult *handler_check = NULL;
     DroneList aux_node = stats_ptr->droneList->next;
     while(inside_id != i){
         inside_id = aux_node->drone.drone_id;
@@ -418,6 +441,7 @@ void *drone_handler(void *id){
         handler_check = search_result;
         if(handler_check->drone_id == myDrone.drone_id){
             printf("[%d] An order has arrived for me!\n", myDrone.drone_id);
+            update_order_drones();
             myDrone.state = 1;
         }
         sleep(1);
@@ -430,7 +454,17 @@ void *drone_handler(void *id){
         int move = move_towards(&myDrone.d_x, &myDrone.d_y, handler_check->w_x, handler_check->w_y);
         printf("[%d] I'm moving torwards %s...\n", myDrone.drone_id, handler_check->w_name);
         if(move == 1){
+            int check;
             printf("[%d] I reached %s!\n", myDrone.drone_id, handler_check->w_name);
+            sem_wait(access_shared_mem);
+            check = update_stock(type_test, quantity_test, search_result->w_name, i);
+            sem_post(access_shared_mem);
+            if(check == 1){
+                printf("[%d] Updated stock number for you!\n", i);
+            }
+            else{
+                printf("[%d] Stock number was not updated\n", i);
+            }
         }
         else{
             printf("[%d] I'm sorry, I couldn't reach the destination\n", myDrone.drone_id);
@@ -492,8 +526,9 @@ SearchResult choose_drone(){
     DroneList aux_first_node = stats_ptr->droneList->next;
     Stats *aux_stats_ptr = stats_ptr;
     for(int i=0; i<stats_ptr->n_warehouses; i++){
-        while(aux_stats_ptr->wArray[i]->prodList != NULL){
-            if(strcmp(aux_stats_ptr->wArray[i]->prodList->product.p_name, type_test) == 0 && aux_stats_ptr->wArray[i]->prodList->product.quantity >= quantity_test){
+        ProductList aux_prod_node = stats_ptr->wArray[i]->prodList->next;
+        while(aux_prod_node!= NULL){
+            if(strcmp(aux_prod_node->product.p_name, type_test) == 0 && aux_prod_node->product.quantity >= quantity_test){
                 printf("\t\tPRODUCT %s IS AVAILABLE AT %s\n", type_test, aux_stats_ptr->wArray[i]->w_name);
                 printf("Calculating distance...\n");
                 //alguma cena é um next aqui
@@ -517,7 +552,7 @@ SearchResult choose_drone(){
                 }
                 aux_drone_node = aux_first_node;
             }
-            aux_stats_ptr->wArray[i]->prodList = aux_stats_ptr->wArray[i]->prodList->next;
+            aux_prod_node = aux_prod_node->next;
         }
     }
     printf("FINAL DISTANCE\n");
@@ -527,6 +562,15 @@ SearchResult choose_drone(){
     printf("W_Y: %f\n", search_result->w_y);
     printf("DISTANCE: %f\n", search_result->distance);
     printf("\n");
+    printf("\t\tWAREHOUSE LIST\n");
+    for(int i=0; i<stats_ptr->n_warehouses; i++){
+        printf("W_NAME: %s\n", stats_ptr->wArray[i]->w_name);
+        printf("W_XY: %f\n", stats_ptr->wArray[i]->w_x);
+        printf("W_NAME: %f\n", stats_ptr->wArray[i]->w_y);
+        printf("\t\tPRODUCT LIST\n");
+        list_product(stats_ptr->wArray[i]->prodList);
+        printf("\n");
+    }
     return *search_result;
 }
 void central(){
@@ -547,7 +591,6 @@ void central(){
         *search_result = choose_drone();
 
 }
-
 
 int main(){
 	/*signal(SIGINT, signal_handler);
