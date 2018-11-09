@@ -11,6 +11,7 @@ pid_t wpid;
 int status = 0;
 SearchResult *search_result;
 sem_t *access_shared_mem;
+sem_t *drone_control;
 
 //TEST DATA//
 char type_test[50] = "Prod_D";
@@ -58,7 +59,9 @@ void create_shared_memory(){
 }
 void init_sem(){
     sem_unlink("access_shared_mem");
+    sem_unlink("drone_control");
     access_shared_mem = sem_open("access_shared_mem", O_CREAT | O_EXCL, 0700, 1);
+    drone_control = sem_open("drone_control", O_CREAT | O_EXCL, 0700, 1);
 }
 
 void close_sem(){
@@ -431,10 +434,10 @@ void *drone_handler(void *id){
         inside_id = aux_node->drone.drone_id;
         if(inside_id == i){
             myDrone = aux_node->drone;
-            break;
         }
         aux_node = aux_node->next;
     }
+
 
     printf("[%d] Awaiting orders... \n", myDrone.drone_id);
     while(myDrone.state == 0){
@@ -442,7 +445,7 @@ void *drone_handler(void *id){
         if(handler_check->drone_id == myDrone.drone_id){
             printf("[%d] An order has arrived for me!\n", myDrone.drone_id);
             update_order_drones();
-            myDrone.state = 1;
+            myDrone.state = 3;
         }
         sleep(1);
         sleep_count+=1;
@@ -450,15 +453,13 @@ void *drone_handler(void *id){
             break;
         }
     }
-    if(myDrone.state == 1){
+    if(myDrone.state == 3){
         int move = move_towards(&myDrone.d_x, &myDrone.d_y, handler_check->w_x, handler_check->w_y);
         printf("[%d] I'm moving torwards %s...\n", myDrone.drone_id, handler_check->w_name);
         if(move == 1){
             int check;
             printf("[%d] I reached %s!\n", myDrone.drone_id, handler_check->w_name);
-            sem_wait(access_shared_mem);
             check = update_stock(type_test, quantity_test, search_result->w_name, i);
-            sem_post(access_shared_mem);
             if(check == 1){
                 printf("[%d] Updated stock number for you!\n", i);
             }
@@ -518,7 +519,6 @@ void drones_init(){
 
 SearchResult choose_drone(){
     //sem
-    SearchResult *search_result = malloc(sizeof(SearchResult));
     double dist_result = 0;
     double prev_dist = 0;
     int result_id = 0;
@@ -555,22 +555,6 @@ SearchResult choose_drone(){
             aux_prod_node = aux_prod_node->next;
         }
     }
-    printf("FINAL DISTANCE\n");
-    printf("DRONE ID: %d\n", search_result->drone_id);
-    printf("W_NAME: %s\n", search_result->w_name);
-    printf("W_X: %f\n", search_result->w_x);
-    printf("W_Y: %f\n", search_result->w_y);
-    printf("DISTANCE: %f\n", search_result->distance);
-    printf("\n");
-    printf("\t\tWAREHOUSE LIST\n");
-    for(int i=0; i<stats_ptr->n_warehouses; i++){
-        printf("W_NAME: %s\n", stats_ptr->wArray[i]->w_name);
-        printf("W_XY: %f\n", stats_ptr->wArray[i]->w_x);
-        printf("W_NAME: %f\n", stats_ptr->wArray[i]->w_y);
-        printf("\t\tPRODUCT LIST\n");
-        list_product(stats_ptr->wArray[i]->prodList);
-        printf("\n");
-    }
     return *search_result;
 }
 void central(){
@@ -579,6 +563,7 @@ void central(){
     drone_threads = malloc(sizeof(pthread_t)*stats_ptr->n_drones);
     drone_id = malloc(sizeof(int)*stats_ptr->n_drones);
     search_result = malloc(sizeof(SearchResult));
+    search_result->drone_id = -1;
     for(i = 0; i < stats_ptr->n_drones; i++){
         drone_id[i] = i;
         if(pthread_create(&drone_threads[i], NULL, drone_handler, &drone_id[i])==0){
