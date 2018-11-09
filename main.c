@@ -13,7 +13,6 @@ SearchResult *search_result;
 sem_t *access_shared_mem;
 sem_t *drone_control;
 int exit_thread;
-int exit_process;
 pid_t sm_pid;
 
 //TEST DATA//
@@ -361,10 +360,6 @@ void warehouse_handler(int i){
     list_product(stats_ptr->wArray[i]->prodList);
     printf("\n");*/
     while(1){
-        if(exit_process == 1){
-            printf("[%d] Goodbye!\n", getpid());
-            exit(0);
-        }
     }
 }
 
