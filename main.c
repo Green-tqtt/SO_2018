@@ -11,6 +11,8 @@ pid_t wpid;
 int status = 0;
 SearchResult *search_result;
 sem_t *access_shared_mem;
+sem_t *control_file_write;
+FILE *log_file;
 
 //TEST DATA//
 char type_test[50] = "Prod_D";
@@ -58,12 +60,16 @@ void create_shared_memory(){
 }
 void init_sem(){
     sem_unlink("access_shared_mem");
+    sem_unlink("control_file_write");
     access_shared_mem = sem_open("access_shared_mem", O_CREAT | O_EXCL, 0700, 1);
+    control_file_write = sem_open("control_file_write", O_CREAT | O_EXCL, 0700, 1);
 }
 
 void close_sem(){
     sem_unlink("access_shared_mem");
+    sem_unlink("control_file_write");
     sem_close(access_shared_mem);
+    sem_close(control_file_write);
 }
 
 void destroy_shared_memory(){
@@ -213,6 +219,17 @@ void read_config(){
     }*/
 
 }
+
+void open_log_file(){
+    log_file = fopen("logs.log", "a+");
+    if(log_file == NULL){
+        perror("Couldn't create file");
+    }
+}
+void close_file(){
+    fclose(log_file);
+}
+
 
 void create_named_pipe(){
     if((mkfifo(PIPE_NAME, O_CREAT|O_EXCL|0600)<0) && (errno!= EEXIST)){
@@ -371,13 +388,31 @@ void warehouse(){
     pid_t pid = getpid();
     int forkVal;
     int n_warehouses;
+    int pid_d;
     n_warehouses = stats_ptr->n_warehouses;
+
+    //time stuff
+    time_t now;
+    struct tm *now_tm;
+    int hour, minutes, seconds;
+    now = time(NULL);
+    now_tm = localtime(&now);
+    hour = now_tm->tm_hour;
+    minutes = now_tm->tm_min;
+    seconds = now_tm->tm_sec;
+    
     for(int i=0; i<n_warehouses; i++){
         forkVal = fork();
         if(forkVal == 0){
             pid = getpid();
+            pid_d = getpid();
             printf("[%d] Warehouse %d is active\n", getpid(), i);
+            sem_wait(control_file_write);
+            fprintf(log_file, "[%d:%d:%d] Created Warehouse %d with PID: %d\n", hour, minutes, seconds, i, pid_d);
+            sem_post(control_file_write);
+            sem_wait(access_shared_mem);
             stats_ptr->wArray[i]->w_no = getpid();
+            sem_post(access_shared_mem);
             //chama função worker
             warehouse_handler(i);
         }
@@ -395,6 +430,16 @@ void update_order_drones(){
 }
 
 int update_stock(char prod_name[50], int quantity, char w_name[50], int id){
+    //time stuff
+    time_t now;
+    struct tm *now_tm;
+    int hour, minutes, seconds;
+    now = time(NULL);
+    now_tm = localtime(&now);
+    hour = now_tm->tm_hour;
+    minutes = now_tm->tm_min;
+    seconds = now_tm->tm_sec;
+
     Stats *aux_node = stats_ptr;
     int n_warehouses = stats_ptr->n_warehouses;
     char prod_cmp[50];
@@ -409,6 +454,9 @@ int update_stock(char prod_name[50], int quantity, char w_name[50], int id){
                     int new_quantity;
                     new_quantity = aux_prod->product.quantity - quantity;
                     aux_prod->product.quantity = new_quantity;
+                    sem_wait(control_file_write);
+                    fprintf(log_file, "[%d:%d:%d] Drone updated stock of Warehouse %s\n", hour, minutes, seconds, w_name);
+                    sem_close(control_file_write);
                     return 1;
                 }
                 aux_prod = aux_prod->next;
@@ -421,6 +469,17 @@ int update_stock(char prod_name[50], int quantity, char w_name[50], int id){
 //------CENTRAL PROCESS-----//
 void *drone_handler(void *id){
     int i = *(int*)id;
+
+    //time stuff
+    time_t now;
+    struct tm *now_tm;
+    int hour, minutes, seconds;
+    now = time(NULL);
+    now_tm = localtime(&now);
+    hour = now_tm->tm_hour;
+    minutes = now_tm->tm_min;
+    seconds = now_tm->tm_sec;
+
     int inside_id= -1;
     int sleep_count=0;
     Drone myDrone;
@@ -441,6 +500,9 @@ void *drone_handler(void *id){
         if(handler_check->drone_id == myDrone.drone_id){
             printf("[%d] An order has arrived for me!\n", myDrone.drone_id);
             update_order_drones();
+            sem_wait(control_file_write);
+            fprintf(log_file, "[%d:%d:%d] Drone %d received order from Central\n", hour, minutes, seconds, myDrone.drone_id);
+            sem_close(control_file_write);
             myDrone.state = 1;
         }
         sleep(1);
@@ -455,6 +517,9 @@ void *drone_handler(void *id){
         if(move == 1){
             int check;
             printf("[%d] I reached %s!\n", myDrone.drone_id, handler_check->w_name);
+            sem_wait(control_file_write);
+            fprintf(log_file, "[%d:%d:%d] Drone %d moved to Warehouse %s\n", hour, minutes, seconds, myDrone.drone_id, handler_check->w_name);
+            sem_close(control_file_write);
             sem_wait(access_shared_mem);
             check = update_stock(type_test, quantity_test, search_result->w_name, i);
             sem_post(access_shared_mem);
@@ -557,6 +622,17 @@ SearchResult choose_drone(){
     return *search_result;
 }
 void central(){
+    //time stuff
+    time_t now;
+    struct tm *now_tm;
+    int hour, minutes, seconds;
+    now = time(NULL);
+    now_tm = localtime(&now);
+    hour = now_tm->tm_hour;
+    minutes = now_tm->tm_min;
+    seconds = now_tm->tm_sec;
+
+    //----
 	int i;
     int n_drones = stats_ptr->n_drones;
     drones_init();
@@ -568,6 +644,9 @@ void central(){
     for(i = 0; i < n_drones; i++){
         drone_id[i] = i;
         if(pthread_create(&drone_threads[i], NULL, drone_handler, &drone_id[i])==0){
+            sem_wait(control_file_write);
+            fprintf(log_file, "[%d:%d:%d] Created Drone %d\n", hour, minutes, seconds, i);
+            sem_post(control_file_write);
             printf("[%d] Drone is active\n", drone_id[i]);
         }
         else{
@@ -595,6 +674,7 @@ int main(){
     printf("Simulation manager started\n");
     create_shared_memory();
     read_config();
+    open_log_file();
 
     pid_t pid = getpid();
     printf("SM PID: %d\n", pid);
@@ -618,5 +698,6 @@ int main(){
         destroy_shared_memory();
         close_sem();
         unlink_named_pipe();
+        close_file();
     }
 }
