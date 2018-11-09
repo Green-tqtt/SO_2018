@@ -12,6 +12,9 @@ int status = 0;
 SearchResult *search_result;
 sem_t *access_shared_mem;
 sem_t *drone_control;
+int exit_thread;
+int exit_process;
+pid_t sm_pid;
 
 //TEST DATA//
 char type_test[50] = "Prod_D";
@@ -79,17 +82,6 @@ void destroy_shared_memory(){
     }
     printf("Sucessfully shmctl'd\n");
 }
-
-/*void signal_handler(int signum){
-    while(wait(NULL)>0);
-    //shutdown_semaphores();
-    //stats_results();
-    power = 0;
-    destroy_shared_memory();
-    destroy_thread_pool();
-    kill(0, SIGKILL);
-    exit(0);
-}*/
 
 void read_config(){
     FILE *fp = fopen("config.txt", "r");
@@ -368,9 +360,12 @@ void warehouse_handler(int i){
     printf("\t\tPRODUCT LIST\n");
     list_product(stats_ptr->wArray[i]->prodList);
     printf("\n");*/
-    sleep(20);
-    printf("[%d] Goodbye!\n", getpid());
-    exit(0);
+    while(1){
+        if(exit_process == 1){
+            printf("[%d] Goodbye!\n", getpid());
+            exit(0);
+        }
+    }
 }
 
 void warehouse(){
@@ -430,7 +425,13 @@ void *drone_handler(void *id){
     Drone myDrone;
     SearchResult *handler_check = NULL;
     DroneList aux_node = stats_ptr->droneList->next;
+    if(exit_thread == 1){
+        pthread_exit(NULL);
+    }
     while(inside_id != i){
+         if(exit_thread == 1){
+            pthread_exit(NULL);
+        }
         inside_id = aux_node->drone.drone_id;
         if(inside_id == i){
             myDrone = aux_node->drone;
@@ -441,19 +442,20 @@ void *drone_handler(void *id){
 
     printf("[%d] Awaiting orders... \n", myDrone.drone_id);
     while(myDrone.state == 0){
+         if(exit_thread == 1){
+            pthread_exit(NULL);
+        }
         handler_check = search_result;
         if(handler_check->drone_id == myDrone.drone_id){
             printf("[%d] An order has arrived for me!\n", myDrone.drone_id);
             update_order_drones();
-            myDrone.state = 3;
-        }
-        sleep(1);
-        sleep_count+=1;
-        if(sleep_count == 10){
-            break;
+            myDrone.state = 1;
         }
     }
-    if(myDrone.state == 3){
+    if(myDrone.state == 1){
+         if(exit_thread == 1){
+            pthread_exit(NULL);
+        }
         int move = move_towards(&myDrone.d_x, &myDrone.d_y, handler_check->w_x, handler_check->w_y);
         printf("[%d] I'm moving torwards %s...\n", myDrone.drone_id, handler_check->w_name);
         if(move == 1){
@@ -473,10 +475,15 @@ void *drone_handler(void *id){
     }
     else
         printf("[%d] No orders for me, leaving\n", myDrone.drone_id);
-    pthread_exit(NULL);
+    while(1){
+        if(exit_thread == 1){
+            pthread_exit(NULL);
+        }
+    }
 }
 
 void kill_threads(){
+    exit_thread = 1;
     for(int i=0; i<stats_ptr->n_drones; i++){
         if(pthread_join(drone_threads[i], NULL)==0){
             printf("[%d] Drone thread has finished\n", drone_id[i]);
@@ -576,28 +583,28 @@ void central(){
         *search_result = choose_drone();
 
 }
+void signal_handler(int signum){
+    kill_threads();
+    destroy_shared_memory();
+    exit_process = 1;
+    kill(sm_pid, SIGTERM);
+    wait(NULL);
+    exit(0);
+}
 
 int main(){
-	/*signal(SIGINT, signal_handler);
-    printf("oi");
-    read_config();
-    create_thread_pool();
-    create_shared_memory();
-    create_process();
-    while(power){
-    }*/
+	signal(SIGINT, SIG_IGN);
     printf("Simulation manager started\n");
     create_shared_memory();
     //create_named_pipe();
     read_config();
 
-    pid_t pid = getpid();
-    printf("SM PID: %d\n", pid);
+     sm_pid = getpid();
+    printf("SM PID: %d\n", sm_pid);
     int forkVal = fork();
     if(forkVal == 0){
         //child, chamar funcao que cria threads
         central();
-        kill_threads();
     }
     else if (forkVal < 0){
         perror("Error creating process\n");
@@ -607,9 +614,7 @@ int main(){
         //parent process, chamar processo warehouse
         warehouse();
         //waits to child process
-        for(int i=0; i<stats_ptr->n_warehouses + 1; i++){
-            wait(NULL);
-        }
-        destroy_shared_memory();
     }
+    signal(SIGINT, signal_handler);
+    while(1){}
 }
