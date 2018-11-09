@@ -11,9 +11,6 @@ pid_t wpid;
 int status = 0;
 SearchResult *search_result;
 sem_t *access_shared_mem;
-sem_t *drone_control;
-int exit_thread;
-pid_t sm_pid;
 
 //TEST DATA//
 char type_test[50] = "Prod_D";
@@ -61,9 +58,7 @@ void create_shared_memory(){
 }
 void init_sem(){
     sem_unlink("access_shared_mem");
-    sem_unlink("drone_control");
     access_shared_mem = sem_open("access_shared_mem", O_CREAT | O_EXCL, 0700, 1);
-    drone_control = sem_open("drone_control", O_CREAT | O_EXCL, 0700, 1);
 }
 
 void close_sem(){
@@ -81,6 +76,17 @@ void destroy_shared_memory(){
     }
     printf("Sucessfully shmctl'd\n");
 }
+
+/*void signal_handler(int signum){
+    while(wait(NULL)>0);
+    //shutdown_semaphores();
+    //stats_results();
+    power = 0;
+    destroy_shared_memory();
+    destroy_thread_pool();
+    kill(0, SIGKILL);
+    exit(0);
+}*/
 
 void read_config(){
     FILE *fp = fopen("config.txt", "r");
@@ -216,11 +222,6 @@ void create_named_pipe(){
 
     printf("Named pipe successfully created\n");
 
-    if((fd = open(PIPE_NAME, O_RDONLY))< 0){
-        perror("Error opening pipe for reading: ");
-        exit(0);
-    }
-
 }
 
 //------LIST STUFF------//
@@ -350,7 +351,9 @@ void list_drones(DroneList drone){
 
 //------WAREHOUSE PROCESS-----//
 void warehouse_handler(int i){
+    sem_wait(access_shared_mem);
     stats_ptr->wArray[i]->w_no = getpid();
+    sem_post(access_shared_mem);
     printf("[%d] Hello! I'm a warehouse!\n", getpid());
     /*printf("W_NAME: %s\n", stats_ptr->wArray[i]->w_name);
     printf("W_XY: %f\n", stats_ptr->wArray[i]->w_x);
@@ -359,14 +362,17 @@ void warehouse_handler(int i){
     printf("\t\tPRODUCT LIST\n");
     list_product(stats_ptr->wArray[i]->prodList);
     printf("\n");*/
-    while(1){
-    }
+    sleep(20);
+    printf("[%d] Goodbye!\n", getpid());
+    exit(0);
 }
 
 void warehouse(){
     pid_t pid = getpid();
     int forkVal;
-    for(int i=0; i<stats_ptr->n_warehouses; i++){
+    int n_warehouses;
+    n_warehouses = stats_ptr->n_warehouses;
+    for(int i=0; i<n_warehouses; i++){
         forkVal = fork();
         if(forkVal == 0){
             pid = getpid();
@@ -420,13 +426,7 @@ void *drone_handler(void *id){
     Drone myDrone;
     SearchResult *handler_check = NULL;
     DroneList aux_node = stats_ptr->droneList->next;
-    if(exit_thread == 1){
-        pthread_exit(NULL);
-    }
     while(inside_id != i){
-         if(exit_thread == 1){
-            pthread_exit(NULL);
-        }
         inside_id = aux_node->drone.drone_id;
         if(inside_id == i){
             myDrone = aux_node->drone;
@@ -437,26 +437,27 @@ void *drone_handler(void *id){
 
     printf("[%d] Awaiting orders... \n", myDrone.drone_id);
     while(myDrone.state == 0){
-         if(exit_thread == 1){
-            pthread_exit(NULL);
-        }
         handler_check = search_result;
         if(handler_check->drone_id == myDrone.drone_id){
             printf("[%d] An order has arrived for me!\n", myDrone.drone_id);
             update_order_drones();
             myDrone.state = 1;
         }
+        sleep(1);
+        sleep_count+=1;
+        if(sleep_count == 10){
+            break;
+        }
     }
     if(myDrone.state == 1){
-         if(exit_thread == 1){
-            pthread_exit(NULL);
-        }
         int move = move_towards(&myDrone.d_x, &myDrone.d_y, handler_check->w_x, handler_check->w_y);
         printf("[%d] I'm moving torwards %s...\n", myDrone.drone_id, handler_check->w_name);
         if(move == 1){
             int check;
             printf("[%d] I reached %s!\n", myDrone.drone_id, handler_check->w_name);
+            sem_wait(access_shared_mem);
             check = update_stock(type_test, quantity_test, search_result->w_name, i);
+            sem_post(access_shared_mem);
             if(check == 1){
                 printf("[%d] Updated stock number for you!\n", i);
             }
@@ -470,16 +471,12 @@ void *drone_handler(void *id){
     }
     else
         printf("[%d] No orders for me, leaving\n", myDrone.drone_id);
-    while(1){
-        if(exit_thread == 1){
-            pthread_exit(NULL);
-        }
-    }
+    pthread_exit(NULL);
 }
 
 void kill_threads(){
-    exit_thread = 1;
-    for(int i=0; i<stats_ptr->n_drones; i++){
+    int n_drones = stats_ptr->n_drones;
+    for(int i=0; i<n_drones; i++){
         if(pthread_join(drone_threads[i], NULL)==0){
             printf("[%d] Drone thread has finished\n", drone_id[i]);
         }
@@ -492,7 +489,7 @@ void kill_threads(){
 void drones_init(){
     time_t t;
     srand((unsigned) time(&t));
-    stats_ptr->droneList= create_drone_list();
+    stats_ptr->droneList = create_drone_list();
     int random_num;
     int base_x, base_y, drone_id;
     for(int i=0; i<stats_ptr->n_drones; i++){
@@ -561,12 +558,14 @@ SearchResult choose_drone(){
 }
 void central(){
 	int i;
+    int n_drones = stats_ptr->n_drones;
     drones_init();
+    create_named_pipe();
     drone_threads = malloc(sizeof(pthread_t)*stats_ptr->n_drones);
     drone_id = malloc(sizeof(int)*stats_ptr->n_drones);
     search_result = malloc(sizeof(SearchResult));
     search_result->drone_id = -1;
-    for(i = 0; i < stats_ptr->n_drones; i++){
+    for(i = 0; i < n_drones; i++){
         drone_id[i] = i;
         if(pthread_create(&drone_threads[i], NULL, drone_handler, &drone_id[i])==0){
             printf("[%d] Drone is active\n", drone_id[i]);
@@ -578,28 +577,32 @@ void central(){
         *search_result = choose_drone();
 
 }
-void signal_handler(int signum){
-    kill_threads();
-    destroy_shared_memory();
-    exit_process = 1;
-    kill(sm_pid, SIGTERM);
-    wait(NULL);
-    exit(0);
+void unlink_named_pipe(){
+    int unlk;
+    unlk = unlink(PIPE_NAME);
+    if(unlk == 0){
+        printf("Named Pipe unlinked!\n");
+    }
+    
 }
 
 int main(){
-	signal(SIGINT, SIG_IGN);
+	/*signal(SIGINT, signal_handler);
+    printf("oi");
+    read_config();
+    while(power){
+    }*/
     printf("Simulation manager started\n");
     create_shared_memory();
-    //create_named_pipe();
     read_config();
 
-     sm_pid = getpid();
-    printf("SM PID: %d\n", sm_pid);
+    pid_t pid = getpid();
+    printf("SM PID: %d\n", pid);
     int forkVal = fork();
     if(forkVal == 0){
         //child, chamar funcao que cria threads
         central();
+        kill_threads();
     }
     else if (forkVal < 0){
         perror("Error creating process\n");
@@ -609,7 +612,11 @@ int main(){
         //parent process, chamar processo warehouse
         warehouse();
         //waits to child process
+        for(int i=0; i<stats_ptr->n_warehouses + 1; i++){
+            wait(NULL);
+        }
+        destroy_shared_memory();
+        close_sem();
+        unlink_named_pipe();
     }
-    signal(SIGINT, signal_handler);
-    while(1){}
 }
