@@ -44,6 +44,7 @@
 #include <math.h>
 #define PIPE_NAME "input_pipe"
 #define DISTANCE 1
+#define MAX_SIZE 100
 
 
 //criacao de struct product type que vai conter os produtos especificados
@@ -70,13 +71,6 @@ typedef struct product{
 //pointer para a struct product
 Product *pw_ptr;
 
-//lista ligada de products de cada warehouse
-typedef struct Product_node *ProductList;
-typedef struct Product_node{
-    Product product;
-    ProductList next;
-}product_node;
-
 //struct de return apos uma pesquisa de uma warehouse com a encomenda e escolhido um drone
 typedef struct searchResult{
     int drone_id;
@@ -92,7 +86,7 @@ typedef struct warehouse{
     double w_x;
     double w_y;
     int w_no;
-    ProductList prodList;
+    Product prodList[3];
 }Warehouse;
 //pointer para a struct warehouse
 Warehouse *w_ptr;
@@ -113,12 +107,6 @@ typedef struct drone{
 }Drone;
 Drone *drone_ptr;
 
-typedef struct Drone_node *DroneList;
-typedef struct Drone_node{
-    Drone drone;
-    DroneList next;
-}drone_node;
-
 typedef struct stats{
     int n_e_drones; //Número total de encomendas atribuidas a drones
     int n_p_warehouse; // Número total de produtos carregados de armazéns
@@ -130,9 +118,7 @@ typedef struct stats{
     int n_drones; //numero de drones
     int S, Q, T; //unidades de tempo
     int n_warehouses; //numero de warehouses
-    Warehouse **wArray; //array de warehouses
-    ProductTypeList prodType; //lista ligada de tipo de produtos
-    DroneList droneList; //lista ligada de drones
+    Drone *droneList; //lista ligada de drones
 }Stats;
 Stats *stats_ptr;
 
@@ -172,10 +158,7 @@ void read_config();
 ProductTypeList create_product_type_list(void);
 void insert_product_type(char p_name[50], ProductTypeList productType);
 void list_product_types(ProductTypeList productType);
-ProductList create_product_list(void);
-void insert_product(char p_name[50], int quantity, ProductList prodList);
 int check_prod_type(char p_name[50], ProductTypeList productType);
-void list_product(ProductList product);
 void create_process();
 void warehouse_activity();
 void central();

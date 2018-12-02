@@ -8,3 +8,13 @@
 [6:7:25] Drone updated stock of Warehouse Warehouse1
 [6:7:24] Created Warehouse 0 with PID: 2792
 [6:7:24] Created Warehouse 1 with PID: 2793
+[11:36:58] Created Drone 0
+[11:36:58] Created Drone 1
+[11:36:58] Created Drone 2
+[11:36:58] Created Drone 3
+[11:36:58] Created Drone 4
+[11:36:58] Drone 1 received order from Central
+[11:36:58] Drone 1 moved to Warehouse Warehouse1
+[11:36:59] Drone updated stock of Warehouse Warehouse1
+[11:36:58] Created Warehouse 0 with PID: 3321
+[11:36:58] Created Warehouse 1 with PID: 3322

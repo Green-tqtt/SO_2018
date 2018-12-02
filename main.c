@@ -1,6 +1,8 @@
 #include "header.h"
 #include "drone_movement.c"
+ProductTypeList prodType;
 int shmid;
+int w_shmid;
 int fd; 
 Stats *stats_ptr;
 int power = 1;
@@ -26,8 +28,8 @@ void create_shared_memory(){
     }
     stats_ptr = (Stats*) shmat(shmid, NULL, 0);
     printf("----------SHARED MEMORY----------\n");
-    printf("\nShared memory sucessfully at address %p\n", stats_ptr);
-    printf("\nShared memory at %d\n", shmid);
+    printf("Shared memory sucessfully at address %p\n", stats_ptr);
+    printf("Shared memory at %d\n", shmid);
     printf("---------------------------------\n");
     
     
@@ -43,9 +45,6 @@ void create_shared_memory(){
     stats_ptr->world_cord_x = 0;
     stats_ptr->world_cord_y = 0;
     stats_ptr->n_warehouses = 0;
-    stats_ptr->droneList = NULL;
-    stats_ptr->prodType = NULL;
-    stats_ptr->wArray = NULL;
  
     //Dados teste
 
@@ -58,6 +57,15 @@ void create_shared_memory(){
     printf("---------------------------\n");
 	
 }
+
+void create_warehouse_sm(int n_warehouses){
+    if((w_shmid = shmget(IPC_PRIVATE, sizeof(Warehouse)*n_warehouses , IPC_CREAT |0766)) == -1){
+        perror("Error creating shared memory\n");   
+        exit(1);
+    }
+    w_ptr = (Warehouse*) shmat(w_shmid, NULL, 0);
+}
+
 void init_sem(){
     sem_unlink("access_shared_mem");
     sem_unlink("control_file_write");
@@ -122,7 +130,7 @@ void read_config(){
     stats_ptr->world_cord_x = atoi(wc_x);
     stats_ptr->world_cord_y = atoi(wc_y);
     char p_name[50];
-    stats_ptr->prodType = create_product_type_list();
+    prodType = create_product_type_list();
     fgets(line, sizeof(line), fp);
     //ir buscar primeira ","
     token = strtok(line, ",");
@@ -134,7 +142,7 @@ void read_config(){
             token[strlen(token)-1] = '\0';
         }
         strcpy(p_name, token);
-        insert_product_type(p_name, stats_ptr->prodType);
+        insert_product_type(p_name, prodType);
         token = strtok(NULL, ",");
     }
  
@@ -166,55 +174,59 @@ void read_config(){
  
     n_warehouses = atoi(token);
     stats_ptr->n_warehouses = n_warehouses;
- 
-    stats_ptr->wArray= malloc(n_warehouses * sizeof(Warehouse*));
+    
     int quantity;
     int checkProdType;
     //meter num for
     char prodName[50];
     fflush(stdin);
+    create_warehouse_sm(n_warehouses);
+    int j=0;
     for(int i=0; i<n_warehouses; i++){
         if(fgets(line, sizeof(line), fp) != NULL){
+            Warehouse wh;
             token = strtok(line, " ");
-            Warehouse *h = (Warehouse*) malloc(sizeof(Warehouse));
-            strcpy(h->w_name, token);
+            strcpy(wh.w_name, token);
             token = strtok(NULL, "; ");
             token = strtok(NULL, ",");
-            h->w_x = atof(token);
+            wh.w_x = atof(token);
             token = strtok(NULL, " ");
-            h->w_y = atof(token);
-            stats_ptr->wArray[i] = h;
-            stats_ptr->wArray[i]->prodList = create_product_list();
+            wh.w_y = atof(token);
             token = strtok(NULL, ": ");
+            wh.w_no = i+1;
             while(token != NULL){
                 token = strtok(NULL, ", ");
                 strcpy(prodName, token);
                 token = strtok(NULL, ", ");
                 quantity = atoi(token);
-                checkProdType = check_prod_type(prodName, stats_ptr->prodType);
+                checkProdType = check_prod_type(prodName, prodType);
                 if(checkProdType == 0){
                     printf("%s is not initialized in config.txt, this may bring problems in the long run.\n", prodName);
                 }
-                insert_product(prodName, quantity, stats_ptr->wArray[i]->prodList);
+                strcpy(wh.prodList[j].p_name, prodName);
+                wh.prodList[j].quantity = quantity;
                 if(token[strlen(token)-1] == '\n'){
                     token[strlen(token)-1] = '\0';
                     token = NULL;
                 }
+                w_ptr[i] = wh;
+                j++;
             }
- 
+            j=0;
         }
     }
     fclose(fp);
     //DEBUG
-    /*printf("\t\tPROD TYPES\n");
-    list_product_types(stats_ptr->prodType);
-    printf("\t\tWAREHOUSE LIST\n");
-    for(int i=0; i<n_warehouses; i++){
-        printf("W_NAME: %s\n", stats_ptr->wArray[i]->w_name);
-        printf("W_XY: %f\n", stats_ptr->wArray[i]->w_x);
-        printf("W_NAME: %f\n", stats_ptr->wArray[i]->w_y);
-        printf("\t\tPRODUCT LIST\n");
-        list_product(stats_ptr->wArray[i]->prodList);
+    /*for(int i=0; i<n_warehouses; i++){
+        printf("Warehouse Name: %s\n", w_ptr[i].w_name);
+        printf("W_X: %f\n", w_ptr[i].w_x);
+        printf("W_Y: %f\n", w_ptr[i].w_y);
+        printf("W_NO: %d\n", w_ptr[i].w_no);
+        printf("\t%s Products:\n", w_ptr[i].w_name);
+        for(int j=0; j<3; j++){
+            printf("\tProd: %s\n", w_ptr[i].prodList[j].p_name);
+            printf("\tQuant: %d\n", w_ptr[i].prodList[j].quantity);
+        }
         printf("\n");
     }*/
 
@@ -277,62 +289,6 @@ void list_product_types(ProductTypeList productType){
         node = node->next;
     }
 }
-
-//cria lista ligada de product types
-ProductList create_product_list(void){
- 
-    ProductList prod_node;
-    prod_node = (ProductList) malloc(sizeof(product_node));
- 
-    if(prod_node != NULL){
-        prod_node->next = NULL;
-    }
-    printf("List created\n");
-    return prod_node;
-}
-
-//lista ligada de drones
-DroneList create_drone_list(void){
- 
-    DroneList d_node;
-    d_node = (DroneList) malloc(sizeof(drone_node));
- 
-    if(d_node != NULL){
-        d_node->next = NULL;
-    }
-    printf("List created\n");
-    return d_node;
-}
-
-void insert_drone(int drone_id, int d_x, int d_y, DroneList droneList){
-    DroneList insertDrone;
-    DroneList atual = droneList;
-    insertDrone = malloc(sizeof(drone_node));
-    while(atual->next!= NULL){
-        atual = atual->next;
-    }
-    insertDrone->drone.d_x = d_x;
-    insertDrone->drone.d_y = d_y;
-    insertDrone->drone.state = 0;
-    insertDrone->drone.drone_id = drone_id;
-    atual->next = insertDrone;
-    insertDrone->next = NULL;
-    printf("Inserted %d into the linked list\n", insertDrone->drone.drone_id);
-}
- 
-void insert_product(char p_name[50], int quantity, ProductList prodList){
-    ProductList insertProd;
-    ProductList atual = prodList;
-    insertProd = malloc(sizeof(product_node));
-    while(atual->next!= NULL){
-        atual = atual->next;
-    }
-    strcpy(insertProd->product.p_name, p_name);
-    insertProd->product.quantity = quantity;
-    atual->next = insertProd;
-    insertProd->next = NULL;
-    printf("Inserted %s into the linked list\n", insertProd->product.p_name);
-}
  
 int check_prod_type(char p_name[50], ProductTypeList productType){
     ProductTypeList node;
@@ -346,31 +302,9 @@ int check_prod_type(char p_name[50], ProductTypeList productType){
 }
     return 0;
 }
- 
-void list_product(ProductList product){
-    ProductList node;
-    node = product->next;
-    while(node != NULL){
-        printf("Prod: %s\n", node->product.p_name);
-        printf("Quantity: %d\n", node->product.quantity);
-        node = node->next;
-    }
-}
-
-void list_drones(DroneList drone){
-    DroneList node;
-    node = drone->next;
-    while(node != NULL){
-        printf("Drone: %d\n", node->drone.drone_id);
-        node = node->next;
-    }
-}
 
 //------WAREHOUSE PROCESS-----//
 void warehouse_handler(int i){
-    sem_wait(access_shared_mem);
-    stats_ptr->wArray[i]->w_no = getpid();
-    sem_post(access_shared_mem);
     printf("[%d] Hello! I'm a warehouse!\n", getpid());
     /*printf("W_NAME: %s\n", stats_ptr->wArray[i]->w_name);
     printf("W_XY: %f\n", stats_ptr->wArray[i]->w_x);
@@ -410,9 +344,6 @@ void warehouse(){
             sem_wait(control_file_write);
             fprintf(log_file, "[%d:%d:%d] Created Warehouse %d with PID: %d\n", hour, minutes, seconds, i, pid_d);
             sem_post(control_file_write);
-            sem_wait(access_shared_mem);
-            stats_ptr->wArray[i]->w_no = getpid();
-            sem_post(access_shared_mem);
             //chama função worker
             warehouse_handler(i);
         }
@@ -429,7 +360,7 @@ void update_order_drones(){
     sem_post(access_shared_mem);
 }
 
-int update_stock(char prod_name[50], int quantity, char w_name[50], int id){
+/*int update_stock(char prod_name[50], int quantity, char w_name[50], int id){
     //time stuff
     time_t now;
     struct tm *now_tm;
@@ -445,7 +376,7 @@ int update_stock(char prod_name[50], int quantity, char w_name[50], int id){
     char prod_cmp[50];
     char w_cmp[50];
     for(int i=0; i<n_warehouses; i++){
-        strcpy(w_cmp, aux_node->wArray[i]->w_name);
+        strcpy(w_cmp, aux_node->wArray[i].w_name);
         if(strcmp(w_cmp, w_name) == 0){
             ProductList aux_prod = aux_node->wArray[i]->prodList->next;
             while(aux_prod != NULL){
@@ -464,10 +395,10 @@ int update_stock(char prod_name[50], int quantity, char w_name[50], int id){
         }
     }
     return 0;
-}
+}*/
 
 //------CENTRAL PROCESS-----//
-void *drone_handler(void *id){
+/*void *drone_handler(void *id){
     int i = *(int*)id;
 
     //time stuff
@@ -537,7 +468,7 @@ void *drone_handler(void *id){
     else
         printf("[%d] No orders for me, leaving\n", myDrone.drone_id);
     pthread_exit(NULL);
-}
+}*/
 
 void kill_threads(){
     int n_drones = stats_ptr->n_drones;
@@ -551,10 +482,9 @@ void kill_threads(){
     }
 }
 
-void drones_init(){
+/*void drones_init(){
     time_t t;
     srand((unsigned) time(&t));
-    stats_ptr->droneList = create_drone_list();
     int random_num;
     int base_x, base_y, drone_id;
     for(int i=0; i<stats_ptr->n_drones; i++){
@@ -576,12 +506,15 @@ void drones_init(){
             base_x = stats_ptr->world_cord_x;
             base_y = 0;
         }
-        insert_drone(drone_id, base_x, base_y, stats_ptr->droneList);
+        //inserir drones no array
+        stats_ptr->droneList[i].drone_id = drone_id;
+        stats_ptr->droneList[i].d_x = base_x;
+        stats_ptr->droneList[i].d_y = base_y;
     }
 
-}
+}*/
 
-SearchResult choose_drone(){
+/*SearchResult choose_drone(){
     //sem
     double dist_result = 0;
     double prev_dist = 0;
@@ -620,8 +553,9 @@ SearchResult choose_drone(){
         }
     }
     return *search_result;
-}
-void central(){
+}*/
+
+/*void central(){
     //time stuff
     time_t now;
     struct tm *now_tm;
@@ -656,6 +590,7 @@ void central(){
         *search_result = choose_drone();
 
 }
+*/
 void unlink_named_pipe(){
     int unlk;
     unlk = unlink(PIPE_NAME);
@@ -674,7 +609,7 @@ int main(){
     printf("Simulation manager started\n");
     create_shared_memory();
     read_config();
-    open_log_file();
+    /*open_log_file();
 
     pid_t pid = getpid();
     printf("SM PID: %d\n", pid);
@@ -700,4 +635,5 @@ int main(){
         unlink_named_pipe();
         close_file();
     }
+    */
 }
