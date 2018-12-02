@@ -107,6 +107,13 @@ typedef struct drone{
 }Drone;
 Drone *drone_ptr;
 
+//lista ligada de drones
+typedef struct d_node *DroneList;
+typedef struct d_node{
+    Drone drone;
+    DroneList next;
+}drone_node;
+
 typedef struct stats{
     int n_e_drones; //Número total de encomendas atribuidas a drones
     int n_p_warehouse; // Número total de produtos carregados de armazéns
