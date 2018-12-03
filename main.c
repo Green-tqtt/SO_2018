@@ -447,6 +447,8 @@ void kill_threads(){
             perror("Error killing Drone thread\n");
         }
     }
+    free(drone_threads);
+    free(drone_id);
 }
 
 void drones_init(DroneList droneList, int n_drones){
@@ -491,8 +493,11 @@ void drones_init(DroneList droneList, int n_drones){
 }
 
 void central_exit(int signum){
+    printf("Central exit\n");
     exit_flag=1;
     kill_threads();
+    printf("threads exit\n");
+
     exit(0);
 }
 
@@ -573,7 +578,7 @@ int main(){
         //child, chamar funcao que cria threads
         signal(SIGINT, central_exit);
         central();
-        exit(0);
+        while(1);
     }
     else if (forkVal < 0){
         perror("Error creating process\n");
