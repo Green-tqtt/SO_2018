@@ -87,22 +87,22 @@ void destroy_shared_memory(){
     if(shmdt(stats_ptr) == -1){
         perror("Error using shmdt\n");
     }
-    printf("Sucessfully shmdt'd\n");
+    printf("[SM]Sucessfully shmdt'd\n");
     if(shmctl(shmid, IPC_RMID, NULL) == -1){
         perror("Error unmapping shared memory\n");
     }
-    printf("Sucessfully shmctl'd\n");
+    printf("[SM]Sucessfully shmctl'd\n");
 }
 
 void destroy_shared_memory_warehouse(){
     if(shmdt(w_ptr) == -1){
         perror("Error using shmdt\n");
     }
-    printf("Sucessfully shmdt'd\n");
+    printf("[Warehouse]Sucessfully shmdt'd\n");
     if(shmctl(w_shmid, IPC_RMID, NULL) == -1){
         perror("Error unmapping shared memory\n");
     }
-    printf("Sucessfully shmctl'd\n");
+    printf("[Warehouse]Sucessfully shmctl'd\n");
 }
 
 void read_config(){
@@ -417,7 +417,6 @@ void update_order_drones(){
 //------CENTRAL PROCESS-----//
 void *drone_handler(void *id){
     int i = *(int*)id;
-    printf("jshdkjs\n");
     //time stuff
     time_t now;
     struct tm *now_tm;
@@ -454,12 +453,10 @@ void kill_threads(){
 void drones_init(DroneList droneList, int n_drones){
     time_t t;
     srand((unsigned) time(&t));
-    int random_num;
     int state=0;
     int base_x, base_y, drone_id;
     int j=0;
     for(int i=0; i<n_drones; i++){
-        random_num = 1 + rand() % 4;
         drone_id = i;
         if(j == 0){
             base_x = 0;
@@ -493,10 +490,8 @@ void drones_init(DroneList droneList, int n_drones){
 }
 
 void central_exit(int signum){
-    printf("Central exit\n");
     exit_flag=1;
     kill_threads();
-    printf("threads exit\n");
 
     exit(0);
 }
@@ -578,6 +573,7 @@ int main(){
         //child, chamar funcao que cria threads
         signal(SIGINT, central_exit);
         central();
+        //funcao que le da pipe aqui
         while(1);
     }
     else if (forkVal < 0){

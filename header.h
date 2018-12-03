@@ -125,7 +125,6 @@ typedef struct stats{
     int n_drones; //numero de drones
     int S, Q, T; //unidades de tempo
     int n_warehouses; //numero de warehouses
-    Drone *droneList; //lista ligada de drones
 }Stats;
 Stats *stats_ptr;
 
