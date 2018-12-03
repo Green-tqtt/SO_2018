@@ -16,6 +16,8 @@ sem_t *access_shared_mem;
 sem_t *control_file_write;
 FILE *log_file;
 
+int *warehouse_pids;
+
 //TEST DATA//
 char type_test[50] = "Prod_D";
 int quantity_test = 7;
@@ -92,16 +94,16 @@ void destroy_shared_memory(){
     printf("Sucessfully shmctl'd\n");
 }
 
-/*void signal_handler(int signum){
-    while(wait(NULL)>0);
-    //shutdown_semaphores();
-    //stats_results();
-    power = 0;
-    destroy_shared_memory();
-    destroy_thread_pool();
-    kill(0, SIGKILL);
-    exit(0);
-}*/
+void destroy_shared_memory_warehouse(){
+    if(shmdt(w_ptr) == -1){
+        perror("Error using shmdt\n");
+    }
+    printf("Sucessfully shmdt'd\n");
+    if(shmctl(w_shmid, IPC_RMID, NULL) == -1){
+        perror("Error unmapping shared memory\n");
+    }
+    printf("Sucessfully shmctl'd\n");
+}
 
 void read_config(){
     FILE *fp = fopen("config.txt", "r");
@@ -216,6 +218,7 @@ void read_config(){
             j=0;
         }
     }
+    warehouse_pids = malloc(sizeof(int)*n_warehouses);
     fclose(fp);
     //DEBUG
     /*for(int i=0; i<n_warehouses; i++){
@@ -239,6 +242,7 @@ void open_log_file(){
         perror("Couldn't create file");
     }
 }
+
 void close_file(){
     fclose(log_file);
 }
@@ -346,8 +350,14 @@ void list_drones(DroneList droneList){
     }
 }
 
+void processes_exit(){
+    printf("[%d] Goodbye!\n", getpid());
+    exit(0);
+}
+
 //------WAREHOUSE PROCESS-----//
 void warehouse_handler(int i){
+    signal(SIGINT, processes_exit);
     printf("[%d] Hello! I'm a warehouse!\n", getpid());
     /*printf("W_NAME: %s\n", stats_ptr->wArray[i]->w_name);
     printf("W_XY: %f\n", stats_ptr->wArray[i]->w_x);
@@ -356,16 +366,18 @@ void warehouse_handler(int i){
     printf("\t\tPRODUCT LIST\n");
     list_product(stats_ptr->wArray[i]->prodList);
     printf("\n");*/
-    sleep(20);
+    while(1){
+        if(exit_flag == 1){
+            break;
+        }
+    }
     printf("[%d] Goodbye!\n", getpid());
     exit(0);
 }
 
 void warehouse(){
-    pid_t pid = getpid();
     int forkVal;
     int n_warehouses;
-    int pid_d;
     n_warehouses = stats_ptr->n_warehouses;
 
     //time stuff
@@ -381,18 +393,17 @@ void warehouse(){
     for(int i=0; i<n_warehouses; i++){
         forkVal = fork();
         if(forkVal == 0){
-            pid = getpid();
-            pid_d = getpid();
+            warehouse_pids[i] = getpid();
             printf("[%d] Warehouse %d is active\n", getpid(), i);
             sem_wait(control_file_write);
-            fprintf(log_file, "[%d:%d:%d] Created Warehouse %d with PID: %d\n", hour, minutes, seconds, i, pid_d);
+            fprintf(log_file, "[%d:%d:%d] Created Warehouse %d with PID: %d\n", hour, minutes, seconds, i, warehouse_pids[i]);
             sem_post(control_file_write);
             //chama função worker
             warehouse_handler(i);
         }
         else if (forkVal < 0){
-        perror("Error creating process\n");
-        exit(0);
+            perror("Error creating process\n");
+            exit(1);
         }
     }
 }
@@ -406,7 +417,7 @@ void update_order_drones(){
 //------CENTRAL PROCESS-----//
 void *drone_handler(void *id){
     int i = *(int*)id;
-
+    printf("jshdkjs\n");
     //time stuff
     time_t now;
     struct tm *now_tm;
@@ -417,14 +428,12 @@ void *drone_handler(void *id){
     minutes = now_tm->tm_min;
     seconds = now_tm->tm_sec;
     while(1){
-        sleep(10);
         printf("[%d] I'm working!\n", i);
-
         if(exit_flag == 1){
             break;
         }
+        sleep(5);
     }
-    
     pthread_exit(NULL);
 }
 
@@ -481,6 +490,13 @@ void drones_init(DroneList droneList, int n_drones){
 
 }
 
+void central_exit(int signum){
+    exit_flag=1;
+    kill_threads();
+    exit(0);
+}
+
+
 void central(){
     //time stuff
     time_t now;
@@ -516,7 +532,7 @@ void central(){
         }
     }
         //*search_result = choose_drone();
-
+    
 }
 
 void unlink_named_pipe(){
@@ -528,25 +544,36 @@ void unlink_named_pipe(){
     
 }
 
+void signal_handler(int signum){
+    exit_flag=1;
+    while(wait(NULL)>0);
+    //kill_threads();
+    destroy_shared_memory();
+    destroy_shared_memory_warehouse();
+    close_sem();
+    unlink_named_pipe();
+    close_file();
+    exit(0);
+}
 int main(){
 	/*signal(SIGINT, signal_handler);
     printf("oi");
     read_config();
     while(power){
     }*/
+    signal(SIGINT, signal_handler);
     printf("Simulation manager started\n");
     create_shared_memory();
     read_config();
-    warehouse();
     open_log_file();
-
     pid_t pid = getpid();
     printf("SM PID: %d\n", pid);
     int forkVal = fork();
     if(forkVal == 0){
         //child, chamar funcao que cria threads
+        signal(SIGINT, central_exit);
         central();
-        kill_threads();
+        exit(0);
     }
     else if (forkVal < 0){
         perror("Error creating process\n");
@@ -556,12 +583,7 @@ int main(){
         //parent process, chamar processo warehouse
         warehouse();
         //waits to child process
-        for(int i=0; i<stats_ptr->n_warehouses + 1; i++){
-            wait(NULL);
-        }
-        destroy_shared_memory();
-        close_sem();
-        unlink_named_pipe();
-        close_file();
     }
+    while(1);
+    return 0;
 }
