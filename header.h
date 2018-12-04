@@ -44,7 +44,7 @@
 #include <math.h>
 #define PIPE_NAME "input_pipe"
 #define DISTANCE 1
-#define MAX_SIZE 100
+#define MAX 255
 
 
 //criacao de struct product type que vai conter os produtos especificados
@@ -155,19 +155,35 @@ double distance(double x1, double y1, double x2, double y2);
  */
 int move_towards(double *drone_x, double *drone_y, double target_x, double target_y);
 
-//void signal_handler(int signum);
-void create_thread_pool();
-void *drone_action();
 void create_shared_memory();
+void create_warehouse_sm(int n_warehouses);
+void init_sem();
+void close_sem();
 void destroy_shared_memory();
+void destroy_shared_memory_warehouse();
 void read_config();
+void open_log_file();
+void close_file();
+void create_named_pipe();
 ProductTypeList create_product_type_list(void);
 void insert_product_type(char p_name[50], ProductTypeList productType);
 void list_product_types(ProductTypeList productType);
 int check_prod_type(char p_name[50], ProductTypeList productType);
-void create_process();
-void warehouse_activity();
+DroneList create_drone_list(void);
+void insert_drone(int drone_id, int state, double d_x, double d_y, DroneList droneList);
+void list_drones(DroneList droneList);
+void processes_exit();
+void warehouse_handler(int i);
+void warehouse();
+void update_order_drones();
+void *drone_handler(void *id);
+void kill_threads();
+void drones_init(DroneList droneList, int n_drones);
+void central_exit(int signum);
 void central();
+void unlink_named_pipe();
+void signal_handler(int signum);
+void read_pipe();
 
 
 #endif

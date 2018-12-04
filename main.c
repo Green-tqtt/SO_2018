@@ -5,7 +5,6 @@ int shmid;
 int w_shmid;
 int fd; 
 Stats *stats_ptr;
-int power = 1;
 pthread_t *drone_threads;
 int *drone_id;
 int retStat;
@@ -15,8 +14,6 @@ SearchResult *search_result;
 sem_t *access_shared_mem;
 sem_t *control_file_write;
 FILE *log_file;
-
-int *warehouse_pids;
 
 //TEST DATA//
 char type_test[50] = "Prod_D";
@@ -218,7 +215,6 @@ void read_config(){
             j=0;
         }
     }
-    warehouse_pids = malloc(sizeof(int)*n_warehouses);
     fclose(fp);
     //DEBUG
     /*for(int i=0; i<n_warehouses; i++){
@@ -393,10 +389,9 @@ void warehouse(){
     for(int i=0; i<n_warehouses; i++){
         forkVal = fork();
         if(forkVal == 0){
-            warehouse_pids[i] = getpid();
             printf("[%d] Warehouse %d is active\n", getpid(), i);
             sem_wait(control_file_write);
-            fprintf(log_file, "[%d:%d:%d] Created Warehouse %d with PID: %d\n", hour, minutes, seconds, i, warehouse_pids[i]);
+            fprintf(log_file, "[%d:%d:%d] Created Warehouse %d with PID: %d\n", hour, minutes, seconds, i, getpid());
             sem_post(control_file_write);
             //chama função worker
             warehouse_handler(i);
@@ -485,14 +480,12 @@ void drones_init(DroneList droneList, int n_drones){
         //inserir drones no array
         insert_drone(drone_id, state, base_x, base_y, droneList);
     }
-    list_drones(droneList);
 
 }
 
 void central_exit(int signum){
     exit_flag=1;
     kill_threads();
-
     exit(0);
 }
 
@@ -517,8 +510,6 @@ void central(){
     create_named_pipe();
     drone_threads = malloc(sizeof(pthread_t)*stats_ptr->n_drones);
     drone_id = malloc(sizeof(int)*stats_ptr->n_drones);
-    //search_result = malloc(sizeof(SearchResult));
-    //search_result->drone_id = -1;
     for(i = 0; i < n_drones; i++){
         drone_id[i] = i;
         if(pthread_create(&drone_threads[i], NULL, drone_handler, &drone_id[i])==0){
@@ -531,7 +522,7 @@ void central(){
             perror("Error creating Drone thread\n");
         }
     }
-        //*search_result = choose_drone();
+    read_pipe();
     
 }
 
@@ -547,13 +538,116 @@ void unlink_named_pipe(){
 void signal_handler(int signum){
     exit_flag=1;
     while(wait(NULL)>0);
-    //kill_threads();
     destroy_shared_memory();
     destroy_shared_memory_warehouse();
     close_sem();
     unlink_named_pipe();
     close_file();
     exit(0);
+}
+
+void read_pipe(){
+
+    //opens pipe for reading
+    if((fd = open(PIPE_NAME, O_RDWR))< 0){
+        perror("Error opening pipe for reading: ");
+        exit(0);
+    }
+
+    char buffer[MAX];
+    int bufferlen;
+    char *token;
+
+    while(1){
+        if((bufferlen = read(fd, buffer, MAX))>0){
+            if(buffer[bufferlen-1] == '\n') buffer[bufferlen-1] = '\0';
+            printf("Read this: %s.\n", buffer);
+
+            token = strtok(buffer, " ");
+            printf("Separated this: %s\n", token);
+
+            if(token != NULL && strcmp(token, "ORDER") == 0){
+                token = strtok(NULL, " ");
+                //nome da encomenda, adicionar a lista ligada de encomendas
+                if(token != NULL){
+                    token = strtok(NULL, ":");
+                    token = strtok(NULL, " ");
+                    if(token != NULL){
+                        //produto da encomenda aqui
+                        char prod_name = token[strlen(token)-2];
+                        //prod number aqui
+                        token = strtok(NULL, " ");
+                        if(token != NULL && atoi(token) != 0){
+                            int prod_number = atoi(token);
+                            token = strtok(NULL, " ");
+                            token = strtok(NULL, ", ");
+                            if(token != NULL && atoi(token) != 0){
+                                //cord x to deliver
+                                int x_deliver = atoi(token);
+                                token = strtok(NULL, " ");
+                                if(token != NULL && atoi(token) != 0){
+                                    //cord y to deliver
+                                    int y_deliver = atoi(token);
+                                    if(strtok(NULL, " ") != NULL){
+                                        printf("\nInvalid command\n");
+                                    }
+                                    else{
+                                        //adicionar merdas para a lista aqui
+                                        printf("This is a valid string\n");
+                                    }
+                                }
+                                else{
+                                    printf("\tInvalid command\n");
+                                }
+                            }
+                            else{
+                                printf("\tInvalid command\n");
+                            }
+                        }
+                        else{
+                            printf("\tInvalid command\n");
+                        }
+                    }
+                    else{
+                        printf("\tInvalid command\n");
+                    }
+                }
+                else{
+                    printf("\tInvalid command\n");
+                }
+            }
+            else if(token != NULL && strcmp(token, "DRONE") == 0){
+                token = strtok(NULL, " ");
+                if(token != NULL && strcmp(token, "SET") == 0){
+                    token = strtok(NULL, " ");
+                    if(token != NULL && atoi(token) != 0){
+                        int number_drones = atoi(token);
+                        printf("The number of drones to change is: %d\n", number_drones);
+                        if(strtok(NULL, " ") != NULL){
+                            printf("\tInvalid command\n");
+                        }
+                        else{
+                            stats_ptr->n_drones = number_drones;
+                            central_exit(1);
+                            
+                            //mudar drones para numero aqui
+                        }
+                    }
+                    else{
+                        printf("\tInvalid command\n");
+                    }
+                }
+                else{
+                    printf("\tInvalid command\n");
+                }
+            }
+            else{
+                printf("\tInvalid command\n");
+            }
+            fflush(stdout);
+
+            }
+    }
 }
 int main(){
 	/*signal(SIGINT, signal_handler);
@@ -573,8 +667,6 @@ int main(){
         //child, chamar funcao que cria threads
         signal(SIGINT, central_exit);
         central();
-        //funcao que le da pipe aqui
-        while(1);
     }
     else if (forkVal < 0){
         perror("Error creating process\n");
