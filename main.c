@@ -351,6 +351,49 @@ void processes_exit(){
     exit(0);
 }
 
+PackageList create_package_list(void){
+    PackageList package_node;
+    package_node = (PackageList) malloc(sizeof(package_node));
+ 
+    if(package_node != NULL){
+        package_node->next = NULL;
+    }
+    printf("List created\n");
+    return package_node;
+}
+
+void insert_package(int uid, char prod_type, int quantity, int deliver_y, int deliver_x, PackageList packageList){
+    PackageList insertPack;
+    PackageList atual = packageList;
+    insertPack = malloc(sizeof(package_node));
+    while(atual->next!= NULL){
+        atual = atual->next;
+    }
+    insertPack->package.uid = uid;
+    insertPack->package.prod_type = prod_type;
+    insertPack->package.quantity = quantity;
+    insertPack->package.deliver_y = deliver_y;
+    insertPack->package.deliver_x = deliver_x;
+    atual->next = insertPack;
+    insertPack->next = NULL;
+
+    printf("Inserted %d into the linked list\n", insertPack->package.uid);
+}
+
+void list_packages(PackageList packageList){
+    PackageList node;
+    node = packageList->next;
+    while(node != NULL){
+        printf("Package UID: %d\n", node->package.uid);
+        printf("Prod_Type: %c\n", node->package.prod_type);
+        printf("Quantity: %d\n", node->package.quantity);
+        printf("D_X: %f\n", node->package.deliver_x);
+        printf("D_Y: %f\n", node->package.deliver_y);
+        printf("\n");
+        node = node->next;
+    }
+}
+
 //------WAREHOUSE PROCESS-----//
 void warehouse_handler(int i){
     signal(SIGINT, processes_exit);
@@ -489,6 +532,11 @@ void central_exit(int signum){
     exit(0);
 }
 
+void create_new_threads(){
+    exit_flag = 1;
+    kill_threads();
+}
+
 
 void central(){
     //time stuff
@@ -501,16 +549,32 @@ void central(){
     minutes = now_tm->tm_min;
     seconds = now_tm->tm_sec;
     DroneList droneList;
-
+    PackageList packageList;
     //----
-	int i;
     int n_drones = stats_ptr->n_drones;
+    packageList = create_package_list();
     droneList = create_drone_list();
     drones_init(droneList, n_drones);
     create_named_pipe();
+    create_threads(n_drones);
+    read_pipe(packageList);
+    
+}
+
+void create_threads(int n_drones){
+       //time stuff
+    time_t now;
+    struct tm *now_tm;
+    int hour, minutes, seconds;
+    now = time(NULL);
+    now_tm = localtime(&now);
+    hour = now_tm->tm_hour;
+    minutes = now_tm->tm_min;
+    seconds = now_tm->tm_sec;
+    
     drone_threads = malloc(sizeof(pthread_t)*stats_ptr->n_drones);
     drone_id = malloc(sizeof(int)*stats_ptr->n_drones);
-    for(i = 0; i < n_drones; i++){
+    for(int i = 0; i < n_drones; i++){
         drone_id[i] = i;
         if(pthread_create(&drone_threads[i], NULL, drone_handler, &drone_id[i])==0){
             sem_wait(control_file_write);
@@ -522,8 +586,6 @@ void central(){
             perror("Error creating Drone thread\n");
         }
     }
-    read_pipe();
-    
 }
 
 void unlink_named_pipe(){
@@ -546,7 +608,7 @@ void signal_handler(int signum){
     exit(0);
 }
 
-void read_pipe(){
+void read_pipe(PackageList packageList){
 
     //opens pipe for reading
     if((fd = open(PIPE_NAME, O_RDWR))< 0){
@@ -557,14 +619,13 @@ void read_pipe(){
     char buffer[MAX];
     int bufferlen;
     char *token;
+    int i=0;
 
     while(1){
         if((bufferlen = read(fd, buffer, MAX))>0){
             if(buffer[bufferlen-1] == '\n') buffer[bufferlen-1] = '\0';
-            printf("Read this: %s.\n", buffer);
 
             token = strtok(buffer, " ");
-            printf("Separated this: %s\n", token);
 
             if(token != NULL && strcmp(token, "ORDER") == 0){
                 token = strtok(NULL, " ");
@@ -593,7 +654,9 @@ void read_pipe(){
                                     }
                                     else{
                                         //adicionar merdas para a lista aqui
-                                        printf("This is a valid string\n");
+                                        i++;
+                                        insert_package(i, prod_name, prod_number, y_deliver, x_deliver, packageList);
+                                        list_packages(packageList);
                                     }
                                 }
                                 else{
@@ -627,10 +690,10 @@ void read_pipe(){
                             printf("\tInvalid command\n");
                         }
                         else{
+                            create_new_threads();
+                            sleep(5);
                             stats_ptr->n_drones = number_drones;
-                            central_exit(1);
-                            
-                            //mudar drones para numero aqui
+                            create_threads(number_drones);
                         }
                     }
                     else{
@@ -649,6 +712,7 @@ void read_pipe(){
             }
     }
 }
+
 int main(){
 	/*signal(SIGINT, signal_handler);
     printf("oi");

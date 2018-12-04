@@ -93,12 +93,19 @@ Warehouse *w_ptr;
 
 typedef struct package{
     int uid;
-    char prod_type[50];
+    char prod_type;
     int quantity;
     double deliver_x;
     double deliver_y;
 }Package;
 Package *pack_ptr;
+
+typedef struct p_node *PackageList;
+typedef struct p_node{
+    Package package;
+    PackageList next;
+}package_node;
+
 
 typedef struct drone{
     int drone_id;
@@ -184,6 +191,7 @@ void central();
 void unlink_named_pipe();
 void signal_handler(int signum);
 void read_pipe();
-
+void create_threads(int n_drones);
+void create_new_threads();
 
 #endif
