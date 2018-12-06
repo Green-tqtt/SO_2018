@@ -620,9 +620,10 @@ void read_pipe(PackageList packageList, DroneList droneList){
     int bufferlen;
     char *token;
     int i=0;
-    int result = -1;
-    char prod[100] = "Prod_";
     Package order;
+    SearchResult result;
+    char *prod_string;
+    int checker;
 
     while(1){
         if((bufferlen = read(fd, buffer, MAX))>0){
@@ -639,7 +640,7 @@ void read_pipe(PackageList packageList, DroneList droneList){
                     if(token != NULL){
                         //produto da encomenda aqui
                         char prod_name = token[strlen(token)-2];
-                        strncat(prod, &prod_name, 50);
+                        asprintf(&prod_string, "Prod_%c", prod_name);
                         //prod number aqui
                         token = strtok(NULL, " ");
                         if(token != NULL && atoi(token) != 0){
@@ -649,6 +650,8 @@ void read_pipe(PackageList packageList, DroneList droneList){
                             if(token != NULL && atoi(token) != 0){
                                 //cord x to deliver
                                 int x_deliver = atoi(token);
+                                int cord_x = stats_ptr->world_cord_x;
+                                int cord_y = stats_ptr->world_cord_y;
                                 token = strtok(NULL, " ");
                                 if(token != NULL && atoi(token) != 0){
                                     //cord y to deliver
@@ -657,15 +660,25 @@ void read_pipe(PackageList packageList, DroneList droneList){
                                         printf("\nInvalid command\n");
                                     }
                                     else{
-                                        i++;
-                                        result = goto_closest_warehouse(prod, prod_number);
-                                        printf("Result of search is: %d\n", result);
-                                        if(result == -1){
-                                            insert_package(i, prod, prod_number, y_deliver, x_deliver, packageList);
-                                            list_packages(packageList);
+                                        if(x_deliver > cord_x || y_deliver > cord_y){
+                                            printf("Invalid command - Coordinates not withing world coordinates\n");
                                         }
                                         else{
-                                            printf("Product is available!\n");
+                                            if((checker = check_prod_type(prod_string, prodType))== 0){
+                                                printf("Invalid command - Product doesn't exist\n");
+                                            }
+                                            else{
+                                                i++;
+                                                result = goto_closest_warehouse(prod_string, prod_number, x_deliver, y_deliver);
+                                                if(result.distance == -1){
+                                                    insert_package(i, prod_string, prod_number, y_deliver, x_deliver, packageList);
+                                                    list_packages(packageList);
+                                                }
+                                                else{
+                                                    printf("Product is available!\n");
+                                        
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -719,15 +732,16 @@ void read_pipe(PackageList packageList, DroneList droneList){
             }
             fflush(stdout);
         }
-        prod[0] = '\0';
-        strcpy(prod, "Prod_");
+        if(result.distance != -1){
+        }
     }
 }
 
-int goto_closest_warehouse(char type[50], int quantity){
+SearchResult goto_closest_warehouse(char type[50], int quantity, double order_x, double order_y){
     //Usar Variaveis teste por agora *_test
     Warehouse *aux_w = w_ptr;
     DroneList aux_d = droneList;
+    SearchResult result;
     int warehouse_n = -1;
     double distD_W;
     int drone_id;
@@ -739,19 +753,25 @@ int goto_closest_warehouse(char type[50], int quantity){
             printf("prod do read: %s\n", type);
             if(strcmp(aux_w[i].prodList[j].p_name, type) == 0){
                 if (aux_w[i].prodList[j].quantity > quantity){
-                    printf("\nWarehouse found! New warehouse is : %d", i);
-                    printf("venho aqui, quant maior\n");
+                    printf("\nWarehouse found! New warehouse is : %d\n", i);
                     warehouse_n = i;
                 }
             }
         }
     }
     if(warehouse_n == -1){
-        return warehouse_n;
+        result.distance = -1;
+        result.drone_id = -1;
+        result.order_x = -1;
+        result.order_y = -1;
+        strcpy(result.w_name, "NONE");
+        result.w_x = -1;
+        result.w_y = -1;
+        return result;
     }
     else{
         while(aux_d){
-            distD_W = distance(aux_d->drone.d_x, aux_d->drone.d_y, aux_w[warehouse_n].w_x, aux_w[warehouse_n].w_y);
+            distD_W = distance(aux_d->drone.d_x, aux_d->drone.d_y, aux_w[warehouse_n].w_x, aux_w[warehouse_n].w_y) + distance(aux_d->drone.d_x, aux_d->drone.d_y,order_x, order_y);
             printf("\n\tDist: %f, Drone: %d\n", distD_W, aux_d->drone.drone_id);
             if(distD_W < distMin){
                 distMin = distD_W;
@@ -761,7 +781,15 @@ int goto_closest_warehouse(char type[50], int quantity){
         }
         printf("\nWarehouse mais proxima da Warehouse %d ---> Drone %d\n", drone_id, warehouse_n);
     }
-    return 0;
+
+    result.distance = distD_W;
+    result.drone_id = drone_id;
+    result.order_x = order_x;
+    result.order_y = order_y;
+    strcpy(result.w_name, aux_w[warehouse_n].w_name);
+    result.w_x = aux_w[warehouse_n].w_x;
+    result.w_y = aux_w[warehouse_n].w_y;
+    return result;
 }
 
 int main(){
