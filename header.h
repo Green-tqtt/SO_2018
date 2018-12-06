@@ -93,7 +93,7 @@ Warehouse *w_ptr;
 
 typedef struct package{
     int uid;
-    char prod_type;
+    char prod_type[100];
     int quantity;
     double deliver_x;
     double deliver_y;
@@ -108,6 +108,7 @@ typedef struct p_node{
 
 
 typedef struct drone{
+    Package *dronePackage;
     int drone_id;
     int state;
     double d_x, d_y, dest_x, dest_y;
@@ -193,5 +194,14 @@ void signal_handler(int signum);
 void read_pipe();
 void create_threads(int n_drones);
 void create_new_threads();
+int goto_closest_warehouse(char type[50], int quantity);
 
+//TO DO PARA AMANHÃ
+//Função closest warehouse está a dar, mas é necessário adaptar a uma estrutura com o resultado da pesquisa
+//(é preciso saber para onde é a entrega, que drone é que está atribuido e a warehouse da entrega)
+//na função read pipe, após uma inserção na lista ligada, verificar se é possível a encomenda ser feita, se sim
+//avisar a thread (mandar search result ou uma cena assim?????)
+//also, na cena de pesquisar drones, meter uma verificação para ver o state do drone, pensar como fazer a cena de ele
+//estar a voltar e receber uma encomenda se for o mais proximo mas por agora cagar nisso
+//AMANHÃ: METER CENAS DE TRAVELLING DE DRONES A FUNCIONAR BASICAMENTE
 #endif
