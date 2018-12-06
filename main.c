@@ -666,6 +666,13 @@ void read_pipe(PackageList packageList, DroneList droneList){
                                         else{
                                             if((checker = check_prod_type(prod_string, prodType))== 0){
                                                 printf("Invalid command - Product doesn't exist\n");
+                                                result.distance = -2;
+                                                result.drone_id = -2;
+                                                result.order_x = -2;
+                                                result.order_y = -2;
+                                                strcpy(result.w_name, "NONE");
+                                                result.w_x = -2;
+                                                result.w_y = -2;
                                             }
                                             else{
                                                 i++;
@@ -732,7 +739,8 @@ void read_pipe(PackageList packageList, DroneList droneList){
             }
             fflush(stdout);
         }
-        if(result.distance != -1){
+        if(result.distance != -1 && result.distance != -2){
+            printf("POSSO MANDAR UM DRONE MEXER! DIST: %f\n", result.distance);
         }
     }
 }
