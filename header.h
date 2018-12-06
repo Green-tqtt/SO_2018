@@ -196,8 +196,9 @@ void read_pipe();
 void create_threads(int n_drones);
 void create_new_threads();
 SearchResult goto_closest_warehouse(char type[50], int quantity, double order_x, double order_y);
-void update_drone_order(DroneList droneList, Package order, SearchResult result);
-
+void update_drone_order(DroneList droneList, Package order, SearchResult result, int i);
+DroneList find_drone_node(int drone_id, DroneList droneList);
+void delete_drone_list(DroneList droneList);
 
 //TO DO PARA AMANHÃ
 //Função closest warehouse está a dar, mas é necessário adaptar a uma estrutura com o resultado da pesquisa

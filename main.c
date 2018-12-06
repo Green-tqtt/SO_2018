@@ -476,14 +476,45 @@ void *drone_handler(void *id){
     hour = now_tm->tm_hour;
     minutes = now_tm->tm_min;
     seconds = now_tm->tm_sec;
+    DroneList  myNode;
+    myNode = find_drone_node(i, droneList);
+    if(myNode == NULL){
+        printf("Something went incredibly wrong\n");
+    }
+    printf("[%d]This is my node: %d\n", i, myNode->drone.drone_id);
     while(1){
         printf("[%d] I'm working!\n", i);
         if(exit_flag == 1){
             break;
         }
+        if(myNode->drone.drone_id == 4){
+            printf("I'm here and i'm queer\n");
+        }
+        if(myNode->drone.dronePackage != NULL){
+            printf("\t[%d] Prod_type: %s\n", i, myNode->drone.dronePackage->prod_type);
+            printf("\t[%d] Quantity: %d\n", i, myNode->drone.dronePackage->quantity);
+            printf("\t[%d] Deliver_x: %f\n", i, myNode->drone.dronePackage->deliver_x);
+            printf("\t[%d] Deviler_y: %f\n", i, myNode->drone.dronePackage->deliver_y);
+            printf("\t[%d] Order UID: %d\n", i, myNode->drone.dronePackage->uid);
+            printf("\t[%d] Order W_NO: %d\n", i, myNode->drone.dronePackage->w_no);
+            printf("\t[%d] MY STATE: %d\n", i, myNode->drone.state);
+            printf("\t[%d] MY DRONE ID: %d\n", i, myNode->drone.drone_id);
+        }
         sleep(5);
     }
     pthread_exit(NULL);
+}
+
+DroneList find_drone_node(int drone_id, DroneList droneList){
+    DroneList aux = droneList;
+    aux = aux->next;
+    while(aux != NULL){
+        if(aux->drone.drone_id == drone_id){
+            return aux;
+        }
+        aux = aux->next;
+    }
+    return NULL;
 }
 
 void kill_threads(){
@@ -503,7 +534,7 @@ void kill_threads(){
 void drones_init(DroneList droneList, int n_drones){
     time_t t;
     srand((unsigned) time(&t));
-    int state=0;
+    int state=1;
     int base_x, base_y, drone_id;
     int j=0;
     for(int i=0; i<n_drones; i++){
@@ -548,6 +579,17 @@ void create_new_threads(){
     kill_threads();
 }
 
+void delete_drone_list(DroneList droneList){
+    DroneList aux = droneList;
+    DroneList next;
+    while(aux != NULL){
+        next = aux->next;
+        free(aux);
+        aux = next;
+    }
+    aux = NULL;
+}
+
 
 void central(){
     //time stuff
@@ -564,7 +606,6 @@ void central(){
     int n_drones = stats_ptr->n_drones;
     packageList = create_package_list();
     droneList = create_drone_list();
-    drones_init(droneList, n_drones);
     create_named_pipe();
     create_threads(n_drones);
     read_pipe(packageList, droneList);
@@ -581,6 +622,10 @@ void create_threads(int n_drones){
     hour = now_tm->tm_hour;
     minutes = now_tm->tm_min;
     seconds = now_tm->tm_sec;
+
+    drones_init(droneList, n_drones);
+    printf("Creating drone list...\n");
+    sleep(2);
     
     drone_threads = malloc(sizeof(pthread_t)*stats_ptr->n_drones);
     drone_id = malloc(sizeof(int)*stats_ptr->n_drones);
@@ -633,6 +678,7 @@ void read_pipe(PackageList packageList, DroneList droneList){
     Package order;
     SearchResult result;
     char *prod_string;
+    int number_of_times = 0;
     int prod_number;
     int checker;
 
@@ -688,7 +734,7 @@ void read_pipe(PackageList packageList, DroneList droneList){
                                             else{
                                                 i++;
                                                 result = goto_closest_warehouse(prod_string, prod_number, x_deliver, y_deliver);
-                                                if(result.distance == -1){
+                                                if(result.w_no == -1 || result.drone_id == -1){
                                                     insert_package(i, prod_string, prod_number, y_deliver, x_deliver, packageList);
                                                     list_packages(packageList);
                                                 }
@@ -731,6 +777,7 @@ void read_pipe(PackageList packageList, DroneList droneList){
                             printf("\tInvalid command\n");
                         }
                         else{
+                            delete_drone_list(droneList);
                             create_new_threads();
                             sleep(5);
                             stats_ptr->n_drones = number_drones;
@@ -751,25 +798,28 @@ void read_pipe(PackageList packageList, DroneList droneList){
             fflush(stdout);
         }
         if(result.distance != -1 && result.distance != -2){
-            printf("POSSO MANDAR UM DRONE MEXER! DIST: %f\n", result.distance);
             order.deliver_x = result.order_x;
             order.deliver_y = result.order_y;
             strcpy(order.prod_type, prod_string);
             order.quantity = prod_number;
             order.uid = i;
             order.w_no = result.w_no;
-            update_drone_order(droneList, order, result);
+            number_of_times++;
+            update_drone_order(droneList, order, result, number_of_times);
 
         }
     }
 }
 
-void update_drone_order(DroneList droneList, Package order, SearchResult result){
+void update_drone_order(DroneList droneList, Package order, SearchResult result, int i){
     DroneList aux = droneList;
-    while(aux->next != NULL){
+    aux = aux->next;
+    while(aux != NULL){
+        printf("DRONE ID: %d\n", aux->drone.drone_id);
         if(aux->drone.drone_id == result.drone_id){
             aux->drone.dronePackage = malloc(sizeof(Package));
             aux->drone.dronePackage = &order;
+            aux->drone.state = 2;
         }
         aux = aux->next;
     }
@@ -782,7 +832,7 @@ SearchResult goto_closest_warehouse(char type[50], int quantity, double order_x,
     SearchResult result;
     int warehouse_n = -1;
     double distD_W;
-    int drone_id;
+    int drone_id = -1;
     double distMin = 999999;
     int n_warehouses = stats_ptr->n_warehouses;
     for( int i = 0; i < n_warehouses; i ++){
@@ -809,7 +859,7 @@ SearchResult goto_closest_warehouse(char type[50], int quantity, double order_x,
         while(aux_d){
             distD_W = distance(aux_d->drone.d_x, aux_d->drone.d_y, aux_w[warehouse_n].w_x, aux_w[warehouse_n].w_y) + distance(aux_d->drone.d_x, aux_d->drone.d_y,order_x, order_y);
             printf("\n\tDist: %f, Drone: %d\n", distD_W, aux_d->drone.drone_id);
-            if(distD_W < distMin){
+            if(distD_W < distMin && (aux_d->drone.state == 1 || aux_d->drone.state == 5)){
                 distMin = distD_W;
                 drone_id = aux_d->drone.drone_id;
             }
