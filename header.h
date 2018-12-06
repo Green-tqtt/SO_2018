@@ -75,7 +75,7 @@ Product *pw_ptr;
 typedef struct searchResult{
     int drone_id;
     double w_x, w_y, order_x, order_y;
-    char w_name[50];
+    int w_no;
     double distance;
 
 }SearchResult;
@@ -97,6 +97,7 @@ typedef struct package{
     int quantity;
     double deliver_x;
     double deliver_y;
+    int w_no;
 }Package;
 Package *pack_ptr;
 
@@ -195,6 +196,8 @@ void read_pipe();
 void create_threads(int n_drones);
 void create_new_threads();
 SearchResult goto_closest_warehouse(char type[50], int quantity, double order_x, double order_y);
+void update_drone_order(DroneList droneList, Package order, SearchResult result);
+
 
 //TO DO PARA AMANHÃ
 //Função closest warehouse está a dar, mas é necessário adaptar a uma estrutura com o resultado da pesquisa

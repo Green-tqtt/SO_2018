@@ -194,7 +194,7 @@ void read_config(){
             token = strtok(NULL, " ");
             wh.w_y = atof(token);
             token = strtok(NULL, ": ");
-            wh.w_no = i+1;
+            wh.w_no = i;
             while(token != NULL){
                 token = strtok(NULL, ", ");
                 strcpy(prodName, token);
@@ -343,6 +343,14 @@ void list_drones(DroneList droneList){
         printf("State: %d\n", node->drone.state);
         printf("D_x: %f\n", node->drone.d_x);
         printf("D_y: %f\n", node->drone.d_y);
+        if(node->drone.dronePackage != NULL){
+            printf("\tProd_type: %s\n", node->drone.dronePackage->prod_type);
+            printf("\tQuantity: %d\n", node->drone.dronePackage->quantity);
+            printf("\tDeliver_x: %f\n", node->drone.dronePackage->deliver_x);
+            printf("\tDeviler_y: %f\n", node->drone.dronePackage->deliver_y);
+            printf("\tOrder UID: %d\n", node->drone.dronePackage->uid);
+            printf("\tOrder W_NO: %d\n", node->drone.dronePackage->w_no);
+        }
         printf("\n");
         node = node->next;
     }
@@ -376,6 +384,7 @@ void insert_package(int uid, char prod_type[100], int quantity, int deliver_y, i
     insertPack->package.quantity = quantity;
     insertPack->package.deliver_y = deliver_y;
     insertPack->package.deliver_x = deliver_x;
+    insertPack->package.w_no = -1;
     atual->next = insertPack;
     insertPack->next = NULL;
 
@@ -391,6 +400,7 @@ void list_packages(PackageList packageList){
         printf("Quantity: %d\n", node->package.quantity);
         printf("D_X: %f\n", node->package.deliver_x);
         printf("D_Y: %f\n", node->package.deliver_y);
+        printf("Warehouse: %d\n", node->package.w_no);
         printf("\n");
         node = node->next;
     }
@@ -623,6 +633,7 @@ void read_pipe(PackageList packageList, DroneList droneList){
     Package order;
     SearchResult result;
     char *prod_string;
+    int prod_number;
     int checker;
 
     while(1){
@@ -644,7 +655,7 @@ void read_pipe(PackageList packageList, DroneList droneList){
                         //prod number aqui
                         token = strtok(NULL, " ");
                         if(token != NULL && atoi(token) != 0){
-                            int prod_number = atoi(token);
+                            prod_number = atoi(token);
                             token = strtok(NULL, " ");
                             token = strtok(NULL, ", ");
                             if(token != NULL && atoi(token) != 0){
@@ -670,7 +681,7 @@ void read_pipe(PackageList packageList, DroneList droneList){
                                                 result.drone_id = -2;
                                                 result.order_x = -2;
                                                 result.order_y = -2;
-                                                strcpy(result.w_name, "NONE");
+                                                result.w_no = -2;
                                                 result.w_x = -2;
                                                 result.w_y = -2;
                                             }
@@ -741,14 +752,33 @@ void read_pipe(PackageList packageList, DroneList droneList){
         }
         if(result.distance != -1 && result.distance != -2){
             printf("POSSO MANDAR UM DRONE MEXER! DIST: %f\n", result.distance);
+            order.deliver_x = result.order_x;
+            order.deliver_y = result.order_y;
+            strcpy(order.prod_type, prod_string);
+            order.quantity = prod_number;
+            order.uid = i;
+            order.w_no = result.w_no;
+            update_drone_order(droneList, order, result);
+
         }
+    }
+}
+
+void update_drone_order(DroneList droneList, Package order, SearchResult result){
+    DroneList aux = droneList;
+    while(aux->next != NULL){
+        if(aux->drone.drone_id == result.drone_id){
+            aux->drone.dronePackage = malloc(sizeof(Package));
+            aux->drone.dronePackage = &order;
+        }
+        aux = aux->next;
     }
 }
 
 SearchResult goto_closest_warehouse(char type[50], int quantity, double order_x, double order_y){
     //Usar Variaveis teste por agora *_test
     Warehouse *aux_w = w_ptr;
-    DroneList aux_d = droneList;
+    DroneList aux_d = droneList->next;
     SearchResult result;
     int warehouse_n = -1;
     double distD_W;
@@ -757,8 +787,6 @@ SearchResult goto_closest_warehouse(char type[50], int quantity, double order_x,
     int n_warehouses = stats_ptr->n_warehouses;
     for( int i = 0; i < n_warehouses; i ++){
         for(int j = 0; j<3; j++){
-            printf("p_name: %s\n", aux_w[i].prodList[j].p_name);
-            printf("prod do read: %s\n", type);
             if(strcmp(aux_w[i].prodList[j].p_name, type) == 0){
                 if (aux_w[i].prodList[j].quantity > quantity){
                     printf("\nWarehouse found! New warehouse is : %d\n", i);
@@ -772,7 +800,7 @@ SearchResult goto_closest_warehouse(char type[50], int quantity, double order_x,
         result.drone_id = -1;
         result.order_x = -1;
         result.order_y = -1;
-        strcpy(result.w_name, "NONE");
+        result.w_no = -1;
         result.w_x = -1;
         result.w_y = -1;
         return result;
@@ -787,14 +815,14 @@ SearchResult goto_closest_warehouse(char type[50], int quantity, double order_x,
             }
             aux_d = aux_d->next;
         }
-        printf("\nWarehouse mais proxima da Warehouse %d ---> Drone %d\n", drone_id, warehouse_n);
+        printf("\nWarehouse mais proxima da Warehouse %d ---> Drone %d\n", warehouse_n, drone_id);
     }
 
     result.distance = distD_W;
     result.drone_id = drone_id;
     result.order_x = order_x;
     result.order_y = order_y;
-    strcpy(result.w_name, aux_w[warehouse_n].w_name);
+    result.w_no = warehouse_n;
     result.w_x = aux_w[warehouse_n].w_x;
     result.w_y = aux_w[warehouse_n].w_y;
     return result;
