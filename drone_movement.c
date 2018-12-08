@@ -69,7 +69,6 @@ int move_towards(double *drone_x, double *drone_y, double target_x, double targe
 
     *drone_x = fabs((*drone_x) + (cos(angle) * DISTANCE));
     *drone_y = fabs((*drone_y) + (sin(angle) * DISTANCE));
-
-
+	
     return 1;
 }

@@ -512,7 +512,7 @@ void *drone_handler(void *id){
     myNode = find_drone_node(i, droneList);
     int move_warehouse = -3;
     int move_deliver = -3;
-    int move_base = -3
+    int move_base = -3;
     if(myNode == NULL){
         printf("Something went incredibly wrong\n");
     }
@@ -530,7 +530,7 @@ void *drone_handler(void *id){
             pthread_mutex_unlock(&d_mutex);
             break;
         }
-        printf("[%d] I'm ready for a delivery! %s to x:%f, y:%f\n", i, myNode->drone.dronePackage->prod_type, myNode->drone.dronePackage->deliver_x, myNode->drone.dronePackage->deliver_y);
+        printf("[%d] I'm ready for a delivery! %s to x:%d, y:%d\n", i, myNode->drone.dronePackage->prod_type, (int)myNode->drone.dronePackage->deliver_x, (int)myNode->drone.dronePackage->deliver_y);
         printf("[%d] Moving to Warehouse %d...\n", i, myNode->drone.dronePackage->w_no);
         int n_warehouses = stats_ptr->n_warehouses;
         for(int i=0; i<n_warehouses; i++){
@@ -541,10 +541,10 @@ void *drone_handler(void *id){
         }
         while(move_warehouse != 0){
             move_warehouse = move_towards(&myNode->drone.d_x, &myNode->drone.d_y, w_x, w_y);
-            sleep(sleep_val);
+
         }
         if(move_warehouse == 0){
-            printf("[%d] Reached warehouse!\n", i);
+            printf("[%d] Reached warehouse %d, %d!\n", i, (int)myNode->drone.d_x, (int)myNode->drone.d_y);
             myNode->drone.state = 3;
             printf("[%d] Notifying Warehouse...\n", i);
             msg msg_wh;
@@ -563,17 +563,34 @@ void *drone_handler(void *id){
             move_warehouse = -3;
 
         }
+        int order_x = myNode->drone.dronePackage->deliver_x;
+        int order_y = myNode->drone.dronePackage->deliver_y;
         while(move_deliver != 0){
-            int order_x = myNode->drone.dronePackage->deliver_x;
-            int order_y = myNode->drone.dronePackage->deliver_y;
             move_deliver = move_towards(&myNode->drone.d_x, &myNode->drone.d_y, order_x, order_y);
             sleep(sleep_val);
             
         }
         if(move_deliver == 0){
-            printf("[%d] Reached destination!\n", i);
+            printf("[%d] Reached destination %d, %d!\n", i, (int)myNode->drone.d_x, (int)myNode->drone.d_y);
             move_deliver = -3;
             myNode->drone.dronePackage = NULL;
+            myNode->drone.state = 5;
+            printf("[%d] Moving to base!\n", i);
+        }
+        int origin_x = myNode->drone.origin_x;
+        int origin_y = myNode->drone.origin_y;
+        while(move_base != 0){
+            move_base = move_towards(&myNode->drone.d_x, &myNode->drone.d_y, origin_x, origin_y);
+            //ver os sleeps de jeito aqui
+            if(myNode->drone.dronePackage != NULL){
+                printf("[%d] Got another delivery while returning to base!n", i);
+                move_base = -3;
+                break;
+            }
+        }
+        if(move_base == 0){
+            printf("[%d] Reached base %d, %d!\n", i, (int)myNode->drone.d_x, (int)myNode->drone.d_y);
+            move_base = -3;
         }
         pthread_mutex_unlock(&d_mutex);
         sleep(5);
