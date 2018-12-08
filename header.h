@@ -112,7 +112,7 @@ typedef struct drone{
     Package *dronePackage;
     int drone_id;
     int state;
-    double d_x, d_y, dest_x, dest_y;
+    double d_x, d_y, origin_x, origin_y;
 }Drone;
 Drone *drone_ptr;
 
@@ -140,7 +140,10 @@ Stats *stats_ptr;
 
 typedef struct message{
     long mtype;
-    char notification[100];
+    int drone_id;
+    char prod_type[50];
+    int quantity;
+    int replyTo;
 }msg;
 
 
@@ -211,3 +214,6 @@ void update_drone_order(DroneList droneList, Package order, SearchResult result,
 SearchResult goto_closest_warehouse(char type[50], int quantity, double order_x, double order_y);
 
 #endif
+
+
+//VER VERIFICAÇÕES E METER STATE EM WAREHOUSE PARA N RECEBER MAIS PEDIDOS ENQUANTO TIVER A TRATAR DE UMA ENCOMENDA

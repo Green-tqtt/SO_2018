@@ -211,7 +211,7 @@ void read_config(){
             token = strtok(NULL, " ");
             wh.w_y = atof(token);
             token = strtok(NULL, ": ");
-            wh.w_no = i;
+            wh.w_no = i+1;
             while(token != NULL){
                 token = strtok(NULL, ", ");
                 strcpy(prodName, token);
@@ -346,6 +346,8 @@ void insert_drone(int drone_id, int state, double d_x, double d_y, DroneList dro
     insertDrone->drone.state = state;
     insertDrone->drone.d_x = d_x;
     insertDrone->drone.d_y = d_y;
+    insertDrone->drone.origin_x = d_x;
+    insertDrone->drone.origin_y = d_y;
     insertDrone->drone.dronePackage = NULL;
     atual->next = insertDrone;
     insertDrone->next = NULL;
@@ -364,7 +366,7 @@ void list_drones(DroneList droneList){
             printf("\tProd_type: %s\n", node->drone.dronePackage->prod_type);
             printf("\tQuantity: %d\n", node->drone.dronePackage->quantity);
             printf("\tDeliver_x: %f\n", node->drone.dronePackage->deliver_x);
-            printf("\tDeviler_y: %f\n", node->drone.dronePackage->deliver_y);
+            printf("\tDeliver_y: %f\n", node->drone.dronePackage->deliver_y);
             printf("\tOrder UID: %d\n", node->drone.dronePackage->uid);
             printf("\tOrder W_NO: %d\n", node->drone.dronePackage->w_no);
         }
@@ -427,17 +429,29 @@ void list_packages(PackageList packageList){
 void warehouse_handler(int i){
     signal(SIGINT, processes_exit);
     printf("[%d] Hello! I'm a warehouse!\n", getpid());
-    /*printf("W_NAME: %s\n", stats_ptr->wArray[i]->w_name);
-    printf("W_XY: %f\n", stats_ptr->wArray[i]->w_x);
-    printf("W_NAME: %f\n", stats_ptr->wArray[i]->w_y);
-    printf("W_NO: %d\n", stats_ptr->wArray[i]->w_no);
-    printf("\t\tPRODUCT LIST\n");
-    list_product(stats_ptr->wArray[i]->prodList);
-    printf("\n");*/
+    Warehouse *aux_ptr = w_ptr;
     while(1){
         if(exit_flag == 1){
             break;
         }
+        msg msg_rcv;
+        msgrcv(mq_id, &msg_rcv, sizeof(msg)-sizeof(long), i, 0);
+        printf("[%d] Warehouse %d received notification from Drone %d\n", getpid(), i, msg_rcv.drone_id);
+        printf("[%d] Order details: %s: %d\n", getpid(), msg_rcv.prod_type, msg_rcv.quantity);
+        printf("[%d] Current stock:\n", getpid());
+        for(int j=0; j<3; j++){
+            printf("[%d] %s: %d\n", getpid(), aux_ptr[i].prodList[j].p_name, aux_ptr[i].prodList[j].quantity);
+        }
+        printf("[%d] Sending confirmation to Drone %d\n", getpid(), msg_rcv.drone_id);
+        msg msg_snd;
+        msg_snd.mtype = msg_rcv.replyTo;
+        msg_snd.drone_id = i;
+        strcpy(msg_snd.prod_type, "NONE");
+        msg_snd.quantity = 0;
+        msg_snd.replyTo = 0;
+        //meter sleep aqui
+        msgsnd(mq_id, &msg_snd, sizeof(msg)-sizeof(long), 0);
+
     }
     printf("[%d] Goodbye!\n", getpid());
     exit(0);
@@ -461,12 +475,12 @@ void warehouse(){
     for(int i=0; i<n_warehouses; i++){
         forkVal = fork();
         if(forkVal == 0){
-            printf("[%d] Warehouse %d is active\n", getpid(), i);
+            printf("[%d] Warehouse %d is active\n", getpid(), i+1);
             sem_wait(control_file_write);
             fprintf(log_file, "[%d:%d:%d] Created Warehouse %d with PID: %d\n", hour, minutes, seconds, i, getpid());
             sem_post(control_file_write);
             //chama função worker
-            warehouse_handler(i);
+            warehouse_handler(i+1);
         }
         else if (forkVal < 0){
             perror("Error creating process\n");
@@ -496,6 +510,9 @@ void *drone_handler(void *id){
     DroneList  myNode;
     Warehouse *aux_ptr = w_ptr;
     myNode = find_drone_node(i, droneList);
+    int move_warehouse = -3;
+    int move_deliver = -3;
+    int move_base = -3
     if(myNode == NULL){
         printf("Something went incredibly wrong\n");
     }
@@ -503,9 +520,9 @@ void *drone_handler(void *id){
 
     while(1){
         pthread_mutex_lock(&d_mutex);
-        int move = -3;
         int w_x = 0;
         int w_y = 0;
+        double sleep_val = stats_ptr->T;
         while(exit_flag == 0 && myNode->drone.dronePackage == NULL){
             pthread_cond_wait(&drone_cond, &d_mutex);
         }
@@ -522,14 +539,41 @@ void *drone_handler(void *id){
                 w_y = aux_ptr[i].w_y;
             }
         }
-        while(move != 0){
-            move = move_towards(&myNode->drone.d_x, &myNode->drone.d_y, w_x, w_y);
-            double sleep_val = stats_ptr->T;
+        while(move_warehouse != 0){
+            move_warehouse = move_towards(&myNode->drone.d_x, &myNode->drone.d_y, w_x, w_y);
             sleep(sleep_val);
         }
-        if(move == 0){
+        if(move_warehouse == 0){
             printf("[%d] Reached warehouse!\n", i);
+            myNode->drone.state = 3;
+            printf("[%d] Notifying Warehouse...\n", i);
+            msg msg_wh;
+            msg_wh.mtype = myNode->drone.dronePackage->w_no;
+            strcpy(msg_wh.prod_type, myNode->drone.dronePackage->prod_type);
+            msg_wh.quantity = myNode->drone.dronePackage->quantity;
+            msg_wh.drone_id = myNode->drone.drone_id;
+            msg_wh.replyTo = myNode->drone.dronePackage->uid;
+            msgsnd(mq_id, &msg_wh, sizeof(msg_wh)-sizeof(long), 0);
 
+            msg msg_rcv;
+            int type = myNode->drone.dronePackage->uid;
+            msgrcv(mq_id, &msg_rcv, sizeof(msg)-sizeof(long), type, 0);
+            printf("[%d] Supply received from Warehouse %d\n", i, msg_rcv.drone_id);
+            myNode->drone.state = 4;
+            move_warehouse = -3;
+
+        }
+        while(move_deliver != 0){
+            int order_x = myNode->drone.dronePackage->deliver_x;
+            int order_y = myNode->drone.dronePackage->deliver_y;
+            move_deliver = move_towards(&myNode->drone.d_x, &myNode->drone.d_y, order_x, order_y);
+            sleep(sleep_val);
+            
+        }
+        if(move_deliver == 0){
+            printf("[%d] Reached destination!\n", i);
+            move_deliver = -3;
+            myNode->drone.dronePackage = NULL;
         }
         pthread_mutex_unlock(&d_mutex);
         sleep(5);
@@ -710,7 +754,7 @@ void read_pipe(PackageList packageList, DroneList droneList){
     char buffer[MAX];
     int bufferlen;
     char *token;
-    int i=0;
+    int i=999;
     Package order;
     SearchResult result;
     char *prod_string;
@@ -933,6 +977,7 @@ int main(){
     create_shared_memory();
     read_config();
     open_log_file();
+    create_message_queue();
     pid_t pid = getpid();
     printf("SM PID: %d\n", pid);
     int forkVal = fork();
