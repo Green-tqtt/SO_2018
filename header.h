@@ -132,10 +132,16 @@ typedef struct stats{
     int world_cord_x; //coordenadas do mundo
     int world_cord_y; //cord do mundo
     int n_drones; //numero de drones
-    int S, Q, T; //unidades de tempo
+    int S, Q;//unidades de tempo
+    double T;
     int n_warehouses; //numero de warehouses
 }Stats;
 Stats *stats_ptr;
+
+typedef struct message{
+    long mtype;
+    char notification[100];
+}msg;
 
 
 /*
@@ -164,10 +170,11 @@ double distance(double x1, double y1, double x2, double y2);
  */
 int move_towards(double *drone_x, double *drone_y, double target_x, double target_y);
 
-void create_shared_memory();
 void create_warehouse_sm(int n_warehouses);
 void init_sem();
 void close_sem();
+void create_message_queue();
+void cleanup_mq();
 void destroy_shared_memory();
 void destroy_shared_memory_warehouse();
 void read_config();
@@ -182,30 +189,25 @@ DroneList create_drone_list(void);
 void insert_drone(int drone_id, int state, double d_x, double d_y, DroneList droneList);
 void list_drones(DroneList droneList);
 void processes_exit();
+PackageList create_package_list(void);
+void insert_package(int uid, char prod_type[100], int quantity, int deliver_y, int deliver_x, PackageList packageList);
+void list_packages(PackageList packageList);
 void warehouse_handler(int i);
 void warehouse();
 void update_order_drones();
 void *drone_handler(void *id);
-void kill_threads();
+DroneList find_drone_node(int drone_id, DroneList droneList);
 void drones_init(DroneList droneList, int n_drones);
 void central_exit(int signum);
+void create_new_threads();
+void delete_drone_list(DroneList droneList);
 void central();
+void create_threads(int n_drones);
 void unlink_named_pipe();
 void signal_handler(int signum);
-void read_pipe();
-void create_threads(int n_drones);
-void create_new_threads();
-SearchResult goto_closest_warehouse(char type[50], int quantity, double order_x, double order_y);
+void read_pipe(PackageList packageList, DroneList droneList);
+void update_warehouse_stock(Package order, int n_warehouses);
 void update_drone_order(DroneList droneList, Package order, SearchResult result, int i);
-DroneList find_drone_node(int drone_id, DroneList droneList);
-void delete_drone_list(DroneList droneList);
+SearchResult goto_closest_warehouse(char type[50], int quantity, double order_x, double order_y);
 
-//TO DO PARA AMANHÃ
-//Função closest warehouse está a dar, mas é necessário adaptar a uma estrutura com o resultado da pesquisa
-//(é preciso saber para onde é a entrega, que drone é que está atribuido e a warehouse da entrega)
-//na função read pipe, após uma inserção na lista ligada, verificar se é possível a encomenda ser feita, se sim
-//avisar a thread (mandar search result ou uma cena assim?????)
-//also, na cena de pesquisar drones, meter uma verificação para ver o state do drone, pensar como fazer a cena de ele
-//estar a voltar e receber uma encomenda se for o mais proximo mas por agora cagar nisso
-//AMANHÃ: METER CENAS DE TRAVELLING DE DRONES A FUNCIONAR BASICAMENTE
 #endif

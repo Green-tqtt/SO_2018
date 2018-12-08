@@ -67,8 +67,8 @@ int move_towards(double *drone_x, double *drone_y, double target_x, double targe
 	double angle = atan2(target_y - *drone_y, target_x - *drone_x);
 
 
-    *drone_x = (*drone_x) + (cos(angle) * DISTANCE);
-    *drone_y = (*drone_y) + (sin(angle) * DISTANCE);
+    *drone_x = fabs((*drone_x) + (cos(angle) * DISTANCE));
+    *drone_y = fabs((*drone_y) + (sin(angle) * DISTANCE));
 
 
     return 1;

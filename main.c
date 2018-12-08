@@ -15,10 +15,10 @@ sem_t *access_shared_mem;
 sem_t *control_file_write;
 FILE *log_file;
 DroneList droneList;
-
-//TEST DATA//
-char type_test[50] = "Prod_D";
-int quantity_test = 7;
+int mq_id;
+//THREADS
+pthread_cond_t drone_cond = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t d_mutex = PTHREAD_MUTEX_INITIALIZER;
 int exit_flag=0;
 
 //------SHARED MEMORY------//
@@ -42,7 +42,7 @@ void create_shared_memory(){
     stats_ptr->n_drones = 0;
     stats_ptr->Q = 0;
     stats_ptr->S = 0;
-    stats_ptr->T = 0;
+    stats_ptr->T = 0.0;
     stats_ptr->world_cord_x = 0;
     stats_ptr->world_cord_y = 0;
     stats_ptr->n_warehouses = 0;
@@ -79,6 +79,23 @@ void close_sem(){
     sem_unlink("control_file_write");
     sem_close(access_shared_mem);
     sem_close(control_file_write);
+}
+
+void create_message_queue(){
+
+    if((mq_id = msgget(IPC_PRIVATE, IPC_CREAT|0700)) < 0){
+        perror("Problem creating message queue");
+        exit(0);
+    }
+    printf("Message queue created!\n");
+}
+
+void cleanup_mq(){
+    if(msgctl(mq_id, IPC_RMID, NULL) < 0){
+        perror("Error deleting message queue");
+        exit(0);
+    }
+    printf("Message queue deleted!\n");
 }
 
 void destroy_shared_memory(){
@@ -170,7 +187,7 @@ void read_config(){
     if(token[strlen(token)-1] == '\n'){
         token[strlen(token)-1] = '\0';
     }
-    stats_ptr->T = atoi(token);
+    stats_ptr->T = atof(token);
     token = strtok(line, "\n");
  
     n_warehouses = atoi(token);
@@ -477,32 +494,49 @@ void *drone_handler(void *id){
     minutes = now_tm->tm_min;
     seconds = now_tm->tm_sec;
     DroneList  myNode;
+    Warehouse *aux_ptr = w_ptr;
     myNode = find_drone_node(i, droneList);
     if(myNode == NULL){
         printf("Something went incredibly wrong\n");
     }
     printf("[%d]This is my node: %d\n", i, myNode->drone.drone_id);
+
     while(1){
-        printf("[%d] I'm working!\n", i);
+        pthread_mutex_lock(&d_mutex);
+        int move = -3;
+        int w_x = 0;
+        int w_y = 0;
+        while(exit_flag == 0 && myNode->drone.dronePackage == NULL){
+            pthread_cond_wait(&drone_cond, &d_mutex);
+        }
         if(exit_flag == 1){
+            pthread_mutex_unlock(&d_mutex);
             break;
         }
-        if(myNode->drone.drone_id == 4){
-            printf("I'm here and i'm queer\n");
+        printf("[%d] I'm ready for a delivery! %s to x:%f, y:%f\n", i, myNode->drone.dronePackage->prod_type, myNode->drone.dronePackage->deliver_x, myNode->drone.dronePackage->deliver_y);
+        printf("[%d] Moving to Warehouse %d...\n", i, myNode->drone.dronePackage->w_no);
+        int n_warehouses = stats_ptr->n_warehouses;
+        for(int i=0; i<n_warehouses; i++){
+            if(aux_ptr[i].w_no == myNode->drone.dronePackage->w_no){
+                w_x = aux_ptr[i].w_x;
+                w_y = aux_ptr[i].w_y;
+            }
         }
-        if(myNode->drone.dronePackage != NULL){
-            printf("\t[%d] Prod_type: %s\n", i, myNode->drone.dronePackage->prod_type);
-            printf("\t[%d] Quantity: %d\n", i, myNode->drone.dronePackage->quantity);
-            printf("\t[%d] Deliver_x: %f\n", i, myNode->drone.dronePackage->deliver_x);
-            printf("\t[%d] Deviler_y: %f\n", i, myNode->drone.dronePackage->deliver_y);
-            printf("\t[%d] Order UID: %d\n", i, myNode->drone.dronePackage->uid);
-            printf("\t[%d] Order W_NO: %d\n", i, myNode->drone.dronePackage->w_no);
-            printf("\t[%d] MY STATE: %d\n", i, myNode->drone.state);
-            printf("\t[%d] MY DRONE ID: %d\n", i, myNode->drone.drone_id);
+        while(move != 0){
+            move = move_towards(&myNode->drone.d_x, &myNode->drone.d_y, w_x, w_y);
+            double sleep_val = stats_ptr->T;
+            sleep(sleep_val);
         }
+        if(move == 0){
+            printf("[%d] Reached warehouse!\n", i);
+
+        }
+        pthread_mutex_unlock(&d_mutex);
         sleep(5);
     }
     pthread_exit(NULL);
+    return NULL;
+
 }
 
 DroneList find_drone_node(int drone_id, DroneList droneList){
@@ -570,6 +604,8 @@ void drones_init(DroneList droneList, int n_drones){
 
 void central_exit(int signum){
     exit_flag=1;
+    pthread_cond_broadcast(&drone_cond);
+    pthread_mutex_unlock(&d_mutex);
     kill_threads();
     exit(0);
 }
@@ -806,7 +842,21 @@ void read_pipe(PackageList packageList, DroneList droneList){
             order.w_no = result.w_no;
             number_of_times++;
             update_drone_order(droneList, order, result, number_of_times);
+            int n_warehouses = stats_ptr->n_warehouses;
+            update_warehouse_stock(order, n_warehouses);
+            pthread_cond_broadcast(&drone_cond);
 
+        }
+    }
+}
+
+void update_warehouse_stock(Package order, int n_warehouses){
+    Warehouse *aux_ptr = w_ptr;
+    for(int i=0; i<n_warehouses; i++){
+        for(int j=0; j<3; j++){
+            if(strcmp(aux_ptr[i].prodList[j].p_name, order.prod_type) == 0){
+                aux_ptr[i].prodList[j].quantity -= order.quantity;
+            }
         }
     }
 }
@@ -815,7 +865,6 @@ void update_drone_order(DroneList droneList, Package order, SearchResult result,
     DroneList aux = droneList;
     aux = aux->next;
     while(aux != NULL){
-        printf("DRONE ID: %d\n", aux->drone.drone_id);
         if(aux->drone.drone_id == result.drone_id){
             aux->drone.dronePackage = malloc(sizeof(Package));
             aux->drone.dronePackage = &order;
