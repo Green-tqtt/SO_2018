@@ -223,6 +223,4 @@ Package check_packageList(PackageList packageList, int n_warehouses);
 void sigusr_handler(int signum);
 
 #endif
-
-//FIX DA FUNÇÃO DO CESARIO PARA CALCULAR DISTANCIA
 //kill -USR1 piddoprocesso
