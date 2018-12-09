@@ -14,3 +14,64 @@
 [20:54:12] Program started!
 [20:54:21] All processes finished!
 [20:54:21] Program finished!
+[21:2:58] Program started!
+[21:2:58] Created Drone 0
+[21:2:58] Created Drone 1
+[21:2:58] Created Drone 2
+[21:2:58] Created Drone 3
+[21:2:58] Created Drone 4
+[21:3:3] Got new order: 1000
+[21:3:3] Drone 3 got order 1000 to deliver
+[21:3:3] Drone 3 finished delivery 1000
+[21:2:58] Program started!
+[21:2:58] Created Warehouse 2 with PID: 7889
+[21:2:58] Program started!
+[21:2:58] Created Warehouse 1 with PID: 7888
+[21:2:58] Program started!
+[21:3:8] Warehouse 1 got new supply of Prod_E:10
+[21:3:14] All processes finished!
+[21:3:14] Program finished!
+[21:3:57] Program started!
+[21:3:57] Created Warehouse 2 with PID: 7913
+[21:3:57] Program started!
+[21:3:57] Created Warehouse 1 with PID: 7912
+[21:3:57] Program started!
+[21:4:7] Warehouse 1 got new supply of Prod_D:10
+[21:4:16] All processes finished!
+[21:4:16] Program finished!
+[21:5:0] Program started!
+[21:5:0] Created Warehouse 1 with PID: 7935
+[21:5:0] Program started!
+[21:5:0] Created Warehouse 2 with PID: 7936
+[21:5:0] Program started!
+[21:5:7] All processes finished!
+[21:5:7] Program finished!
+[21:5:9] Program started!
+[21:5:9] Created Warehouse 1 with PID: 7944
+[21:5:9] Program started!
+[21:5:9] Created Warehouse 2 with PID: 7945
+[21:5:9] Program started!
+[21:5:16] All processes finished!
+[21:5:16] Program finished!
+[21:5:19] Program started!
+[21:5:19] Created Warehouse 2 with PID: 7954
+[21:5:19] Program started!
+[21:5:19] Created Warehouse 1 with PID: 7953
+[21:5:19] Program started!
+[21:5:19] Created Drone 0
+[21:5:19] Created Drone 1
+[21:5:19] Created Drone 2
+[21:5:19] Created Drone 3
+[21:5:19] Created Drone 4
+[21:5:24] Got new order: 1000
+[21:5:24] Order 1000 doesn't have enough stock
+[21:5:24] Got new order: 1001
+[21:5:24] Order 1001 doesn't have enough stock
+[21:5:24] Got new order: 1002
+[21:5:24] Drone 3 got order 1002 to deliver
+[21:5:24] Drone 3 finished delivery 1002
+[21:5:19] Program started!
+[21:5:29] Warehouse 1 got new supply of Prod_E:10
+[21:5:39] Warehouse 2 got new supply of Prod_D:10
+[21:5:41] All processes finished!
+[21:5:41] Program finished!

@@ -1128,11 +1128,21 @@ SearchResult goto_closest_warehouse(char type[50], int quantity, double order_x,
             if(strcmp(aux_w[i-1].prodList[j].p_name, type) == 0){
                 if (aux_w[i-1].prodList[j].quantity > quantity){
                     printf("\nWarehouse found! New warehouse is : %d\n", i);
+                    while(aux_d){
+                        distD_W = distance(aux_d->drone.d_x, aux_d->drone.d_y, aux_w[i-1].w_x, aux_w[i-1].w_y) + distance(aux_d->drone.d_x, aux_d->drone.d_y,order_x, order_y);
+                        printf("\n\tDist: %f, Drone: %d\n", distD_W, aux_d->drone.drone_id);
+                        if(distD_W < distMin && (aux_d->drone.state == 1 || aux_d->drone.state == 5)){
+                            distMin = distD_W;
+                            drone_id = aux_d->drone.drone_id;
+                        }
+                    aux_d = aux_d->next;
+                    }
                     warehouse_n = i;
                 }
             }
         }
     }
+    printf("\nWarehouse mais proxima da Warehouse %d ---> Drone %d\n", warehouse_n, drone_id);
     if(warehouse_n == -1){
         result.distance = -1;
         result.drone_id = -1;
@@ -1144,26 +1154,15 @@ SearchResult goto_closest_warehouse(char type[50], int quantity, double order_x,
         return result;
     }
     else{
-        while(aux_d){
-            distD_W = distance(aux_d->drone.d_x, aux_d->drone.d_y, aux_w[warehouse_n].w_x, aux_w[warehouse_n].w_y) + distance(aux_d->drone.d_x, aux_d->drone.d_y,order_x, order_y);
-            printf("\n\tDist: %f, Drone: %d\n", distD_W, aux_d->drone.drone_id);
-            if(distD_W < distMin && (aux_d->drone.state == 1 || aux_d->drone.state == 5)){
-                distMin = distD_W;
-                drone_id = aux_d->drone.drone_id;
-            }
-            aux_d = aux_d->next;
-        }
-        printf("\nWarehouse mais proxima da Warehouse %d ---> Drone %d\n", warehouse_n, drone_id);
+        result.distance = distD_W;
+        result.drone_id = drone_id;
+        result.order_x = order_x;
+        result.order_y = order_y;
+        result.w_no = warehouse_n;
+        result.w_x = aux_w[warehouse_n].w_x;
+        result.w_y = aux_w[warehouse_n].w_y;
+        return result;
     }
-
-    result.distance = distD_W;
-    result.drone_id = drone_id;
-    result.order_x = order_x;
-    result.order_y = order_y;
-    result.w_no = warehouse_n;
-    result.w_x = aux_w[warehouse_n].w_x;
-    result.w_y = aux_w[warehouse_n].w_y;
-    return result;
 }
 
 int main(){
@@ -1188,7 +1187,6 @@ int main(){
     pid_t pid = getpid();
     printf("SM PID: %d\n", pid);
     if(getpid() == pid){
-        printing = 0;
         sem_wait(control_file_write);
         fprintf(log_file, "[%d:%d:%d] Program started!\n", hour, minutes, seconds);
         sem_post(control_file_write);
