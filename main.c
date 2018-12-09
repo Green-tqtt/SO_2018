@@ -941,7 +941,7 @@ void update_warehouse_stock(Package order, int n_warehouses){
     Warehouse *aux_ptr = w_ptr;
     for(int i=0; i<n_warehouses; i++){
         for(int j=0; j<3; j++){
-            if(strcmp(aux_ptr[i].prodList[j].p_name, order.prod_type) == 0){
+            if(strcmp(aux_ptr[i].prodList[j].p_name, order.prod_type) == 0 && aux_ptr[i].w_no == order.w_no){
                 aux_ptr[i].prodList[j].quantity -= order.quantity;
                 aux_ptr[i].state = 1;
             }
