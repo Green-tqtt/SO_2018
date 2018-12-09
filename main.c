@@ -211,7 +211,7 @@ void read_config(){
             token = strtok(NULL, " ");
             wh.w_y = atof(token);
             token = strtok(NULL, ": ");
-            wh.w_no = i;
+            wh.w_no = i+1;
             wh.state = 0;
             while(token != NULL){
                 token = strtok(NULL, ", ");
@@ -456,8 +456,7 @@ void warehouse_handler(int i){
         }
         if(aux_ptr[i-1].state == 2){
             msg msg_supply;
-            int msg_type = aux_ptr[i-1].w_no + 100;
-            msgrcv(mq_id, &msg_supply, sizeof(msg)-sizeof(long), msg_type, 0);
+            msgrcv(mq_id, &msg_supply, sizeof(msg)-sizeof(long), 100, 0);
             printf("[%d] Got a supply of %s: %d, updated stock!\n", getpid(), msg_supply.prod_type, msg_supply.quantity);
             printf("[%d] Current stock:\n", getpid());
             for(int j=0; j<3; j++){
@@ -476,10 +475,10 @@ void supply_warehouses(int j){
     int random_val = rand() % 3;
     int quantity = 10;
     aux_ptr[j].prodList[random_val].quantity += quantity;
-    printf("SELECTED WAREHOUSE: %s\n", aux_ptr[j].w_name);
+
     msg supply_msg;
     supply_msg.drone_id = 0;
-    supply_msg.mtype = 100 + aux_ptr[j].w_no;
+    supply_msg.mtype = 100;
     strcpy(supply_msg.prod_type, aux_ptr[j].prodList[random_val].p_name);
     supply_msg.quantity = quantity;
     aux_ptr[j].state = 2;
@@ -500,16 +499,17 @@ void warehouse(){
     hour = now_tm->tm_hour;
     minutes = now_tm->tm_min;
     seconds = now_tm->tm_sec;
-    
+    int w_no=0;
     for(int i=0; i<n_warehouses; i++){
         forkVal = fork();
+        w_no = i+1;
         if(forkVal == 0){
-            printf("[%d] Warehouse %d is active\n", getpid(), i+1);
+            printf("[%d] Warehouse w_no: %d is active\n", getpid(), w_no);
             sem_wait(control_file_write);
-            fprintf(log_file, "[%d:%d:%d] Created Warehouse %d with PID: %d\n", hour, minutes, seconds, i, getpid());
+            fprintf(log_file, "[%d:%d:%d] Created Warehouse %d with PID: %d\n", hour, minutes, seconds, w_no, getpid());
             sem_post(control_file_write);
             //chama função worker
-            warehouse_handler(i+1);
+            warehouse_handler(w_no);
         }
         else if (forkVal < 0){
             perror("Error creating process\n");
@@ -749,7 +749,8 @@ void create_threads(int n_drones){
 
     drones_init(droneList, n_drones);
     printf("Creating drone list...\n");
-    sleep(5);
+    sleep(2);
+    
     drone_threads = malloc(sizeof(pthread_t)*stats_ptr->n_drones);
     drone_id = malloc(sizeof(int)*stats_ptr->n_drones);
     for(int i = 0; i < n_drones; i++){
@@ -940,7 +941,7 @@ void update_warehouse_stock(Package order, int n_warehouses){
     Warehouse *aux_ptr = w_ptr;
     for(int i=0; i<n_warehouses; i++){
         for(int j=0; j<3; j++){
-            if(strcmp(aux_ptr[i].prodList[j].p_name, order.prod_type) == 0 && aux_ptr[i].w_no == order.w_no){
+            if(strcmp(aux_ptr[i].prodList[j].p_name, order.prod_type) == 0){
                 aux_ptr[i].prodList[j].quantity -= order.quantity;
                 aux_ptr[i].state = 1;
             }
@@ -971,10 +972,10 @@ SearchResult goto_closest_warehouse(char type[50], int quantity, double order_x,
     int drone_id = -1;
     double distMin = 999999;
     int n_warehouses = stats_ptr->n_warehouses;
-    for( int i = 0; i < n_warehouses; i ++){
+    for( int i = 1; i < n_warehouses+1; i ++){
         for(int j = 0; j<3; j++){
-            if(strcmp(aux_w[i].prodList[j].p_name, type) == 0){
-                if (aux_w[i].prodList[j].quantity > quantity){
+            if(strcmp(aux_w[i-1].prodList[j].p_name, type) == 0){
+                if (aux_w[i-1].prodList[j].quantity > quantity){
                     printf("\nWarehouse found! New warehouse is : %d\n", i);
                     warehouse_n = i;
                 }
