@@ -211,7 +211,7 @@ void read_config(){
             token = strtok(NULL, " ");
             wh.w_y = atof(token);
             token = strtok(NULL, ": ");
-            wh.w_no = i+1;
+            wh.w_no = i;
             wh.state = 0;
             while(token != NULL){
                 token = strtok(NULL, ", ");
@@ -456,7 +456,8 @@ void warehouse_handler(int i){
         }
         if(aux_ptr[i-1].state == 2){
             msg msg_supply;
-            msgrcv(mq_id, &msg_supply, sizeof(msg)-sizeof(long), 100, 0);
+            int msg_type = aux_ptr[i-1].w_no + 100;
+            msgrcv(mq_id, &msg_supply, sizeof(msg)-sizeof(long), msg_type, 0);
             printf("[%d] Got a supply of %s: %d, updated stock!\n", getpid(), msg_supply.prod_type, msg_supply.quantity);
             printf("[%d] Current stock:\n", getpid());
             for(int j=0; j<3; j++){
@@ -475,10 +476,10 @@ void supply_warehouses(int j){
     int random_val = rand() % 3;
     int quantity = 10;
     aux_ptr[j].prodList[random_val].quantity += quantity;
-
+    printf("SELECTED WAREHOUSE: %s\n", aux_ptr[j].w_name);
     msg supply_msg;
     supply_msg.drone_id = 0;
-    supply_msg.mtype = 100;
+    supply_msg.mtype = 100 + aux_ptr[j].w_no;
     strcpy(supply_msg.prod_type, aux_ptr[j].prodList[random_val].p_name);
     supply_msg.quantity = quantity;
     aux_ptr[j].state = 2;
@@ -748,8 +749,7 @@ void create_threads(int n_drones){
 
     drones_init(droneList, n_drones);
     printf("Creating drone list...\n");
-    sleep(2);
-    
+    sleep(5);
     drone_threads = malloc(sizeof(pthread_t)*stats_ptr->n_drones);
     drone_id = malloc(sizeof(int)*stats_ptr->n_drones);
     for(int i = 0; i < n_drones; i++){
@@ -940,7 +940,7 @@ void update_warehouse_stock(Package order, int n_warehouses){
     Warehouse *aux_ptr = w_ptr;
     for(int i=0; i<n_warehouses; i++){
         for(int j=0; j<3; j++){
-            if(strcmp(aux_ptr[i].prodList[j].p_name, order.prod_type) == 0){
+            if(strcmp(aux_ptr[i].prodList[j].p_name, order.prod_type) == 0 && aux_ptr[i].w_no == order.w_no){
                 aux_ptr[i].prodList[j].quantity -= order.quantity;
                 aux_ptr[i].state = 1;
             }
