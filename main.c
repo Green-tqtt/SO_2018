@@ -442,7 +442,7 @@ void warehouse_handler(int i){
             printf("[%d] Order details: %s: %d\n", getpid(), msg_rcv.prod_type, msg_rcv.quantity);
             printf("[%d] Current stock:\n", getpid());
             for(int j=0; j<3; j++){
-                printf("[%d] %s: %d\n", getpid(), aux_ptr[i-1].prodList[j].p_name, aux_ptr[i].prodList[j].quantity);
+                printf("[%d] %s: %d\n", getpid(), aux_ptr[i-1].prodList[j].p_name, aux_ptr[i-1].prodList[j].quantity);
             }
             printf("[%d] Sending confirmation to Drone %d\n", getpid(), msg_rcv.drone_id);
             msg msg_snd;
@@ -451,7 +451,6 @@ void warehouse_handler(int i){
             strcpy(msg_snd.prod_type, "NONE");
             msg_snd.quantity = 0;
             msg_snd.replyTo = 0;
-            //meter sleep aqui
             msgsnd(mq_id, &msg_snd, sizeof(msg)-sizeof(long), 0);
             aux_ptr[i-1].state = 0;
         }
@@ -476,7 +475,7 @@ void supply_warehouses(int j){
     int random_val = rand() % 3;
     int quantity = 10;
     aux_ptr[j].prodList[random_val].quantity += quantity;
-    printf("GOT SELECTED: %s\n", aux_ptr[j].w_name);
+
     msg supply_msg;
     supply_msg.drone_id = 0;
     supply_msg.mtype = 100;
@@ -1040,14 +1039,13 @@ int main(){
     else{
         //parent process, chamar processo warehouse
         warehouse();
-        //waits to child process
-    }
-    while(1){
-        sleep(10);
-        supply_warehouses(j);
-        j++;
-        if(j == supply){
-            j=0;
+        while(1){
+            sleep(10);
+            supply_warehouses(j);
+            j++;
+            if(j == supply){
+                j=0;
+            }
         }
     }
     return 0;
