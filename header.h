@@ -129,7 +129,8 @@ typedef struct stats{
     int n_p_warehouse; // Número total de produtos carregados de armazéns
     int n_e_delivered; //Número total de encomendas entregues
     int n_p_delivered; //Número total de produtos entregues
-    float average_time; //Tempo médio de conclusão de uma encomenda
+    double average_time; //Tempo médio de conclusão de uma encomenda
+    int avg_d;
     int world_cord_x; //coordenadas do mundo
     int world_cord_y; //cord do mundo
     int n_drones; //numero de drones
@@ -198,7 +199,6 @@ void insert_package(int uid, char prod_type[100], int quantity, int deliver_y, i
 void list_packages(PackageList packageList);
 void warehouse_handler(int i);
 void warehouse();
-void update_order_drones();
 void *drone_handler(void *id);
 DroneList find_drone_node(int drone_id, DroneList droneList);
 void drones_init(DroneList droneList, int n_drones);
@@ -220,10 +220,9 @@ void delete_drone_list(DroneList droneList);
 void delete_packageList(PackageList packageList);
 void delete_prod_type_list(ProductTypeList prodType);
 Package check_packageList(PackageList packageList, int n_warehouses);
-void kill_threads_cancel();
+void sigusr_handler(int signum);
 
 #endif
 
 //FIX DA FUNÇÃO DO CESARIO PARA CALCULAR DISTANCIA
-//VER DRONE SET
-//estatisticas
+//kill -USR1 piddoprocesso

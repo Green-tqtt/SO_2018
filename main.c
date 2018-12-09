@@ -8,7 +8,6 @@ Stats *stats_ptr;
 pthread_t *drone_threads;
 int *drone_id;
 int retStat;
-pid_t wpid;
 int status = 0;
 sem_t *access_shared_mem;
 sem_t *control_file_write;
@@ -38,24 +37,15 @@ void create_shared_memory(){
     stats_ptr->n_p_warehouse=0;
     stats_ptr->n_e_delivered=0;
     stats_ptr->n_p_delivered=0;
-    stats_ptr->average_time=0.0;
+    stats_ptr->average_time=0;
     stats_ptr->n_drones = 0;
     stats_ptr->Q = 0;
     stats_ptr->S = 0;
     stats_ptr->T = 0.0;
+    stats_ptr->avg_d = 0;
     stats_ptr->world_cord_x = 0;
     stats_ptr->world_cord_y = 0;
     stats_ptr->n_warehouses = 0;
- 
-    //Dados teste
-
-    printf("----------RESULTS----------\n");
-    printf("Número de encomendas atribuídas a drones: %d\n", stats_ptr->n_e_drones);
-    printf("Número de produtos carregados nos armazéns: %d\n", stats_ptr->n_p_warehouse);
-    printf("Número de encomendas entregues: %d\n", stats_ptr->n_e_delivered);
-    printf("Número de produtos entregues: %d\n", stats_ptr->n_p_delivered);
-    printf("Tempo médio para conclusão de uma encomenda: %.1f\n", stats_ptr->average_time);
-    printf("---------------------------\n");
 	
 }
 
@@ -471,6 +461,17 @@ void warehouse_handler(int i){
 }
 
 void supply_warehouses(int j){
+
+    //time stuff
+   time_t now;
+   struct tm *now_tm;
+   int hour, minutes, seconds;
+   now = time(NULL);
+   now_tm = localtime(&now);
+   hour = now_tm->tm_hour;
+   minutes = now_tm->tm_min;
+   seconds = now_tm->tm_sec;
+
     Warehouse *aux_ptr = w_ptr;
     int random_val = rand() % 3;
     int quantity = 10;
@@ -482,6 +483,11 @@ void supply_warehouses(int j){
     strcpy(supply_msg.prod_type, aux_ptr[j].prodList[random_val].p_name);
     supply_msg.quantity = quantity;
     aux_ptr[j].state = 2;
+
+    int log_i = j+1;
+
+    fprintf(log_file, "[%d:%d:%d] Warehouse %d got new supply of %s:%d\n", hour, minutes, seconds, log_i, supply_msg.prod_type, supply_msg.quantity);
+    
     msgsnd(mq_id, &supply_msg, sizeof(supply_msg)-sizeof(long), 0);
 }
 
@@ -518,12 +524,6 @@ void warehouse(){
     }
 }
 
-void update_order_drones(){
-    sem_wait(access_shared_mem);
-    stats_ptr->n_e_drones++;
-    sem_post(access_shared_mem);
-}
-
 //------CENTRAL PROCESS-----//
 void *drone_handler(void *id){
     int i = *(int*)id;
@@ -536,12 +536,15 @@ void *drone_handler(void *id){
     hour = now_tm->tm_hour;
     minutes = now_tm->tm_min;
     seconds = now_tm->tm_sec;
+
     DroneList  myNode;
     Warehouse *aux_ptr = w_ptr;
     myNode = find_drone_node(i, droneList);
     int move_warehouse = -3;
     int move_deliver = -3;
     int move_base = -3;
+    int quant = 0;
+    int d=0;
     if(myNode == NULL){
         printf("Something went incredibly wrong\n");
     }
@@ -559,6 +562,8 @@ void *drone_handler(void *id){
             pthread_mutex_unlock(&d_mutex);
             break;
         }
+        clock_t t;
+        t = clock();
         printf("[%d] I'm ready for a delivery! %s to x:%d, y:%d\n", i, myNode->drone.dronePackage->prod_type, (int)myNode->drone.dronePackage->deliver_x, (int)myNode->drone.dronePackage->deliver_y);
         printf("[%d] Moving to Warehouse %d...\n", i, myNode->drone.dronePackage->w_no);
         int n_warehouses = stats_ptr->n_warehouses;
@@ -588,6 +593,11 @@ void *drone_handler(void *id){
             int type = myNode->drone.dronePackage->uid;
             msgrcv(mq_id, &msg_rcv, sizeof(msg)-sizeof(long), type, 0);
             printf("[%d] Supply received from Warehouse %d\n", i, msg_rcv.drone_id);
+            quant = myNode->drone.dronePackage->quantity;
+            sem_wait(access_shared_mem);
+            stats_ptr->n_p_warehouse += quant;
+            sem_post(access_shared_mem);
+            quant=0;
             myNode->drone.state = 4;
             move_warehouse = -3;
 
@@ -600,10 +610,24 @@ void *drone_handler(void *id){
             
         }
         if(move_deliver == 0){
+            t = clock() - t;
+            double duration = ((double)t)/CLOCKS_PER_SEC;
             printf("[%d] Reached destination %d, %d!\n", i, (int)myNode->drone.d_x, (int)myNode->drone.d_y);
+            sem_wait(control_file_write);
+            fprintf(log_file, "[%d:%d:%d] Drone %d finished delivery %d\n", hour, minutes, seconds, myNode->drone.drone_id, myNode->drone.dronePackage->uid);
+            sem_post(control_file_write);
+            quant = myNode->drone.dronePackage->quantity;
             move_deliver = -3;
+            d++;
+            sem_wait(access_shared_mem);
+            stats_ptr->n_e_delivered++;
+            stats_ptr->n_p_delivered += quant;
+            stats_ptr->average_time += duration;
+            stats_ptr->avg_d = d;
+            sem_post(access_shared_mem);
             myNode->drone.dronePackage = NULL;
             myNode->drone.state = 5;
+            quant = 0;
             printf("[%d] Moving to base!\n", i);
         }
         int origin_x = myNode->drone.origin_x;
@@ -803,19 +827,54 @@ void unlink_named_pipe(){
 }
 
 void signal_handler(int signum){
+       //time stuff
+    time_t now;
+    struct tm *now_tm;
+    int hour, minutes, seconds;
+    now = time(NULL);
+    now_tm = localtime(&now);
+    hour = now_tm->tm_hour;
+    minutes = now_tm->tm_min;
+    seconds = now_tm->tm_sec;
+
     exit_flag=1;
     while(wait(NULL)>0);
     destroy_shared_memory();
     destroy_shared_memory_warehouse();
-    close_sem();
     unlink_named_pipe();
-    close_file();
     cleanup_mq();
     delete_lists();
+    sem_wait(control_file_write);
+    fprintf(log_file, "[%d:%d:%d] All processes finished!\n", hour, minutes, seconds);
+    fprintf(log_file, "[%d:%d:%d] Program finished!\n", hour, minutes, seconds);
+    sem_post(control_file_write);
+    close_file();
+    close_sem();
     exit(0);
+}
+void sigusr_handler(int signum){
+
+    printf("----------RESULTS----------\n");
+    printf("Número de encomendas atribuídas a drones: %d\n", stats_ptr->n_e_drones);
+    printf("Número de produtos carregados nos armazéns: %d\n", stats_ptr->n_p_warehouse);
+    printf("Número de encomendas entregues: %d\n", stats_ptr->n_e_delivered);
+    printf("Número de produtos entregues: %d\n", stats_ptr->n_p_delivered);
+    printf("Tempo médio para conclusão de uma encomenda: %.1f\n", stats_ptr->average_time / stats_ptr->avg_d);
+    printf("---------------------------\n");
+
 }
 
 void read_pipe(PackageList packageList, DroneList droneList){
+
+     //time stuff
+   time_t now;
+   struct tm *now_tm;
+   int hour, minutes, seconds;
+   now = time(NULL);
+   now_tm = localtime(&now);
+   hour = now_tm->tm_hour;
+   minutes = now_tm->tm_min;
+   seconds = now_tm->tm_sec;
 
     //opens pipe for reading
     if((fd = open(PIPE_NAME, O_RDWR))< 0){
@@ -884,10 +943,16 @@ void read_pipe(PackageList packageList, DroneList droneList){
                                             }
                                             else{
                                                 i++;
+                                                sem_wait(control_file_write);
+                                                fprintf(log_file, "[%d:%d:%d] Got new order: %d\n", hour, minutes, seconds, i);
+                                                sem_post(control_file_write);
                                                 result = goto_closest_warehouse(prod_string, prod_number, x_deliver, y_deliver);
                                                 if(result.w_no == -1 || result.drone_id == -1){
                                                     insert_package(i, prod_string, prod_number, y_deliver, x_deliver, packageList);
                                                     list_packages(packageList);
+                                                    sem_wait(control_file_write);
+                                                    fprintf(log_file, "[%d:%d:%d] Order %d doesn't have enough stock\n", hour, minutes, seconds, i);
+                                                    sem_post(control_file_write);
                                                 }
                                                 else{
                                                     printf("Product is available!\n");
@@ -970,7 +1035,13 @@ void read_pipe(PackageList packageList, DroneList droneList){
             order.w_no = result.w_no;
             update_drone_order(droneList, order, result);
             int n_warehouses = stats_ptr->n_warehouses;
+            sem_wait(access_shared_mem);
+            stats_ptr->n_e_drones++;
+            sem_post(access_shared_mem);
             update_warehouse_stock(order, n_warehouses);
+            sem_wait(control_file_write);
+            fprintf(log_file, "[%d:%d:%d] Drone %d got order %d to deliver\n", hour, minutes, seconds, result.drone_id, order.uid);
+            sem_post(control_file_write);
             pthread_cond_broadcast(&drone_cond);
 
         }
@@ -1006,7 +1077,6 @@ Package check_packageList(PackageList packageList, int n_warehouses){
     order.quantity = -1;
     order.uid = -1;
     order.w_no = -1;
-    printf("GOT THIS FROM FUNC: %s\n", order.prod_type);
     return order;
 }
 
@@ -1097,14 +1167,32 @@ SearchResult goto_closest_warehouse(char type[50], int quantity, double order_x,
 }
 
 int main(){
+    //time stuff
+    time_t now;
+    struct tm *now_tm;
+    int hour, minutes, seconds;
+    now = time(NULL);
+    now_tm = localtime(&now);
+    hour = now_tm->tm_hour;
+    minutes = now_tm->tm_min;
+    seconds = now_tm->tm_sec;
     signal(SIGINT, signal_handler);
     printf("Simulation manager started\n");
+
     create_shared_memory();
     read_config();
     open_log_file();
     create_message_queue();
+
+    signal(SIGUSR1, sigusr_handler);
     pid_t pid = getpid();
     printf("SM PID: %d\n", pid);
+    if(getpid() == pid){
+        printing = 0;
+        sem_wait(control_file_write);
+        fprintf(log_file, "[%d:%d:%d] Program started!\n", hour, minutes, seconds);
+        sem_post(control_file_write);
+    }
     srand(time(NULL));
     int supply = stats_ptr->n_warehouses;
     int j=0;
