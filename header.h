@@ -214,6 +214,8 @@ void update_warehouse_stock(Package order, int n_warehouses);
 void update_drone_order(DroneList droneList, Package order, SearchResult result);
 SearchResult goto_closest_warehouse(char type[50], int quantity, double order_x, double order_y);
 void supply_warehouses(int j);
+Package check_packageList(PackageList packageList, int n_warehouses);
+int packageList_empty(PackageList packageList);
 
 #endif
 

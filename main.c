@@ -802,9 +802,12 @@ void read_pipe(PackageList packageList, DroneList droneList){
     int i=999;
     Package order;
     SearchResult result;
+    Package listOrder;
+    int n_warehouses = stats_ptr->n_warehouses;
     char *prod_string;
     int prod_number;
     int checker;
+    int flag_queue=0;
 
     while(1){
         if((bufferlen = read(fd, buffer, MAX))>0){
@@ -865,6 +868,18 @@ void read_pipe(PackageList packageList, DroneList droneList){
                                                 else{
                                                     printf("Product is available!\n");
                                         
+                                                }
+                                                int empty = packageList_empty(packageList);
+                                                if(empty == 1){
+                                                    listOrder = check_packageList(packageList, n_warehouses);
+                                                    if(strcmp(listOrder.prod_type, "NONE") != 0){
+                                                        printf("There is a pending package in the waiting queue that can be delivered!\n");
+                                                        printf("Inserting current package into the waiting queue\n");
+                                                        result = goto_closest_warehouse(listOrder.prod_type, listOrder.quantity, listOrder.deliver_x, listOrder.deliver_y);
+                                                        insert_package(i, prod_string, prod_number, y_deliver, x_deliver, packageList);
+                                                        flag_queue = 1;
+                                                    }
+                                                    flag_queue = 1;
                                                 }
                                             }
                                         }
@@ -928,13 +943,59 @@ void read_pipe(PackageList packageList, DroneList droneList){
             order.quantity = prod_number;
             order.uid = i;
             order.w_no = result.w_no;
+            if(flag_queue == 1){
+                order = listOrder;
+                flag_queue = 0;
+                printf("List is not empty something to be done\n");
+            }
             update_drone_order(droneList, order, result);
-            int n_warehouses = stats_ptr->n_warehouses;
             update_warehouse_stock(order, n_warehouses);
             pthread_cond_broadcast(&drone_cond);
 
         }
     }
+}
+
+Package check_packageList(PackageList packageList, int n_warehouses){
+    PackageList aux = packageList->next;
+    PackageList aux_ant = packageList;
+    Package order;
+    Warehouse *aux_ptr = w_ptr;
+    for(int i=0; i<n_warehouses; i++){
+        for(int j=0; j<n_warehouses; j++){
+            while(aux != NULL){
+                if(strcmp(aux_ptr[i].prodList[j].p_name, aux->package.prod_type) == 0 && aux_ptr[i].prodList[j].quantity >= aux->package.quantity){
+                    strcpy(order.prod_type, aux->package.prod_type);
+                    order.quantity = aux->package.quantity;
+                    order.deliver_x = aux->package.deliver_x;
+                    order.deliver_y = aux->package.deliver_y;
+                    order.uid = aux->package.uid;
+                    order.w_no = aux->package.w_no;
+                    aux_ant->next = aux->next;
+                    free(aux);
+                    return order;
+                }
+            }
+            aux_ant = aux;
+            aux = aux->next;
+        }
+    }
+    order.deliver_x = -1;
+    order.deliver_y = -1;
+    strcpy(order.prod_type, "NONE");
+    order.quantity = -1;
+    order.uid = -1;
+    order.w_no = -1;
+    printf("GOT THIS FROM FUNC: %s\n", order.prod_type);
+    return order;
+}
+
+int packageList_empty(PackageList packageList){
+    PackageList aux = packageList->next;
+    if(aux == NULL){
+        return 0;
+    }
+    return 1;
 }
 
 void update_warehouse_stock(Package order, int n_warehouses){
