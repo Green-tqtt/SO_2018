@@ -214,13 +214,16 @@ void update_warehouse_stock(Package order, int n_warehouses);
 void update_drone_order(DroneList droneList, Package order, SearchResult result);
 SearchResult goto_closest_warehouse(char type[50], int quantity, double order_x, double order_y);
 void supply_warehouses(int j);
+int check_empty_list(PackageList packageList);
+void delete_lists();
+void delete_drone_list(DroneList droneList);
+void delete_packageList(PackageList packageList);
+void delete_prod_type_list(ProductTypeList prodType);
 Package check_packageList(PackageList packageList, int n_warehouses);
-int packageList_empty(PackageList packageList);
+void kill_threads_cancel();
 
 #endif
 
-
-//VER VERIFICAÇÕES E METER STATE EM WAREHOUSE PARA N RECEBER MAIS PEDIDOS ENQUANTO TIVER A TRATAR DE UMA ENCOMENDA
-//VER LISTA DE ENCOMENDAS SE UMA PODE SER TRATATA DEPOIS
 //FIX DA FUNÇÃO DO CESARIO PARA CALCULAR DISTANCIA
 //VER DRONE SET
+//estatisticas

@@ -10,11 +10,11 @@ int *drone_id;
 int retStat;
 pid_t wpid;
 int status = 0;
-SearchResult *search_result;
 sem_t *access_shared_mem;
 sem_t *control_file_write;
 FILE *log_file;
 DroneList droneList;
+PackageList packageList;
 int mq_id;
 //THREADS
 pthread_cond_t drone_cond = PTHREAD_COND_INITIALIZER;
@@ -700,7 +700,15 @@ void central_exit(int signum){
 
 void create_new_threads(){
     exit_flag = 1;
+    pthread_cond_broadcast(&drone_cond);
+    pthread_mutex_unlock(&d_mutex);
     kill_threads();
+}
+
+void delete_lists(){
+    delete_drone_list(droneList);
+    delete_packageList(packageList);
+    delete_prod_type_list(prodType);
 }
 
 void delete_drone_list(DroneList droneList){
@@ -711,7 +719,26 @@ void delete_drone_list(DroneList droneList){
         free(aux);
         aux = next;
     }
-    aux = NULL;
+}
+
+void delete_packageList(PackageList packageList){
+    PackageList aux = packageList;
+    PackageList next;
+    while(aux != NULL){
+        next = aux->next;
+        free(aux);
+        aux = next;
+    }
+}
+
+void delete_prod_type_list(ProductTypeList prodType){
+    ProductTypeList aux = prodType;
+    ProductTypeList next;
+    while(aux != NULL){
+        next = aux->next;
+        free(aux);
+        aux = next;
+    }
 }
 
 
@@ -725,7 +752,6 @@ void central(){
     hour = now_tm->tm_hour;
     minutes = now_tm->tm_min;
     seconds = now_tm->tm_sec;
-    PackageList packageList;
     //----
     int n_drones = stats_ptr->n_drones;
     packageList = create_package_list();
@@ -749,7 +775,7 @@ void create_threads(int n_drones){
 
     drones_init(droneList, n_drones);
     printf("Creating drone list...\n");
-    sleep(2);
+    sleep(5);
     
     drone_threads = malloc(sizeof(pthread_t)*stats_ptr->n_drones);
     drone_id = malloc(sizeof(int)*stats_ptr->n_drones);
@@ -785,6 +811,7 @@ void signal_handler(int signum){
     unlink_named_pipe();
     close_file();
     cleanup_mq();
+    delete_lists();
     exit(0);
 }
 
@@ -802,12 +829,9 @@ void read_pipe(PackageList packageList, DroneList droneList){
     int i=999;
     Package order;
     SearchResult result;
-    Package listOrder;
-    int n_warehouses = stats_ptr->n_warehouses;
     char *prod_string;
     int prod_number;
     int checker;
-    int flag_queue=0;
 
     while(1){
         if((bufferlen = read(fd, buffer, MAX))>0){
@@ -869,7 +893,7 @@ void read_pipe(PackageList packageList, DroneList droneList){
                                                     printf("Product is available!\n");
                                         
                                                 }
-                                                int empty = packageList_empty(packageList);
+                                                /*int empty = packageList_empty(packageList);
                                                 if(empty == 1){
                                                     listOrder = check_packageList(packageList, n_warehouses);
                                                     if(strcmp(listOrder.prod_type, "NONE") != 0){
@@ -880,7 +904,7 @@ void read_pipe(PackageList packageList, DroneList droneList){
                                                         flag_queue = 1;
                                                     }
                                                     flag_queue = 1;
-                                                }
+                                                }*/
                                             }
                                         }
                                     }
@@ -917,6 +941,7 @@ void read_pipe(PackageList packageList, DroneList droneList){
                         }
                         else{
                             delete_drone_list(droneList);
+                            sleep(2);
                             create_new_threads();
                             sleep(5);
                             stats_ptr->n_drones = number_drones;
@@ -943,19 +968,14 @@ void read_pipe(PackageList packageList, DroneList droneList){
             order.quantity = prod_number;
             order.uid = i;
             order.w_no = result.w_no;
-            if(flag_queue == 1){
-                order = listOrder;
-                flag_queue = 0;
-                printf("List is not empty something to be done\n");
-            }
             update_drone_order(droneList, order, result);
+            int n_warehouses = stats_ptr->n_warehouses;
             update_warehouse_stock(order, n_warehouses);
             pthread_cond_broadcast(&drone_cond);
 
         }
     }
 }
-
 Package check_packageList(PackageList packageList, int n_warehouses){
     PackageList aux = packageList->next;
     PackageList aux_ant = packageList;
@@ -990,7 +1010,7 @@ Package check_packageList(PackageList packageList, int n_warehouses){
     return order;
 }
 
-int packageList_empty(PackageList packageList){
+int check_empty_list(PackageList packageList){
     PackageList aux = packageList->next;
     if(aux == NULL){
         return 0;
