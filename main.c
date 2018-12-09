@@ -471,10 +471,9 @@ void supply_warehouses(int j){
    hour = now_tm->tm_hour;
    minutes = now_tm->tm_min;
    seconds = now_tm->tm_sec;
-
     Warehouse *aux_ptr = w_ptr;
     int random_val = rand() % 3;
-    int quantity = 10;
+    int quantity = stats_ptr->Q;
     aux_ptr[j].prodList[random_val].quantity += quantity;
 
     msg supply_msg;
@@ -545,6 +544,7 @@ void *drone_handler(void *id){
     int move_base = -3;
     int quant = 0;
     int d=0;
+
     if(myNode == NULL){
         printf("Something went incredibly wrong\n");
     }
@@ -591,6 +591,8 @@ void *drone_handler(void *id){
 
             msg msg_rcv;
             int type = myNode->drone.dronePackage->uid;
+            sleep_val = myNode->drone.dronePackage->quantity;
+            sleep(sleep_val);
             msgrcv(mq_id, &msg_rcv, sizeof(msg)-sizeof(long), type, 0);
             printf("[%d] Supply received from Warehouse %d\n", i, msg_rcv.drone_id);
             quant = myNode->drone.dronePackage->quantity;
@@ -606,10 +608,11 @@ void *drone_handler(void *id){
         int order_y = myNode->drone.dronePackage->deliver_y;
         while(move_deliver != 0){
             move_deliver = move_towards(&myNode->drone.d_x, &myNode->drone.d_y, order_x, order_y);
-            sleep(sleep_val);
             
         }
         if(move_deliver == 0){
+            sleep_val = stats_ptr->S;
+            sleep(sleep_val);
             t = clock() - t;
             double duration = ((double)t)/CLOCKS_PER_SEC;
             printf("[%d] Reached destination %d, %d!\n", i, (int)myNode->drone.d_x, (int)myNode->drone.d_y);
@@ -1170,6 +1173,7 @@ int main(){
     time_t now;
     struct tm *now_tm;
     int hour, minutes, seconds;
+    int sleep_val = 0;
     now = time(NULL);
     now_tm = localtime(&now);
     hour = now_tm->tm_hour;
@@ -1182,6 +1186,8 @@ int main(){
     read_config();
     open_log_file();
     create_message_queue();
+
+    sleep_val = stats_ptr->S;
 
     signal(SIGUSR1, sigusr_handler);
     pid_t pid = getpid();
@@ -1208,7 +1214,7 @@ int main(){
         //parent process, chamar processo warehouse
         warehouse();
         while(1){
-            sleep(10);
+            sleep(sleep_val);
             supply_warehouses(j);
             j++;
             if(j == supply){
