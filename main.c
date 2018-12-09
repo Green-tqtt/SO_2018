@@ -212,6 +212,7 @@ void read_config(){
             wh.w_y = atof(token);
             token = strtok(NULL, ": ");
             wh.w_no = i+1;
+            wh.state = 0;
             while(token != NULL){
                 token = strtok(NULL, ", ");
                 strcpy(prodName, token);
@@ -434,27 +435,55 @@ void warehouse_handler(int i){
         if(exit_flag == 1){
             break;
         }
-        msg msg_rcv;
-        msgrcv(mq_id, &msg_rcv, sizeof(msg)-sizeof(long), i, 0);
-        printf("[%d] Warehouse %d received notification from Drone %d\n", getpid(), i, msg_rcv.drone_id);
-        printf("[%d] Order details: %s: %d\n", getpid(), msg_rcv.prod_type, msg_rcv.quantity);
-        printf("[%d] Current stock:\n", getpid());
-        for(int j=0; j<3; j++){
-            printf("[%d] %s: %d\n", getpid(), aux_ptr[i].prodList[j].p_name, aux_ptr[i].prodList[j].quantity);
+        if(aux_ptr[i-1].state == 1){
+            msg msg_rcv;
+            msgrcv(mq_id, &msg_rcv, sizeof(msg)-sizeof(long), i, 0);
+            printf("[%d] Warehouse %d received notification from Drone %d\n", getpid(), i, msg_rcv.drone_id);
+            printf("[%d] Order details: %s: %d\n", getpid(), msg_rcv.prod_type, msg_rcv.quantity);
+            printf("[%d] Current stock:\n", getpid());
+            for(int j=0; j<3; j++){
+                printf("[%d] %s: %d\n", getpid(), aux_ptr[i-1].prodList[j].p_name, aux_ptr[i].prodList[j].quantity);
+            }
+            printf("[%d] Sending confirmation to Drone %d\n", getpid(), msg_rcv.drone_id);
+            msg msg_snd;
+            msg_snd.mtype = msg_rcv.replyTo;
+            msg_snd.drone_id = i;
+            strcpy(msg_snd.prod_type, "NONE");
+            msg_snd.quantity = 0;
+            msg_snd.replyTo = 0;
+            //meter sleep aqui
+            msgsnd(mq_id, &msg_snd, sizeof(msg)-sizeof(long), 0);
+            aux_ptr[i-1].state = 0;
         }
-        printf("[%d] Sending confirmation to Drone %d\n", getpid(), msg_rcv.drone_id);
-        msg msg_snd;
-        msg_snd.mtype = msg_rcv.replyTo;
-        msg_snd.drone_id = i;
-        strcpy(msg_snd.prod_type, "NONE");
-        msg_snd.quantity = 0;
-        msg_snd.replyTo = 0;
-        //meter sleep aqui
-        msgsnd(mq_id, &msg_snd, sizeof(msg)-sizeof(long), 0);
+        if(aux_ptr[i-1].state == 2){
+            msg msg_supply;
+            msgrcv(mq_id, &msg_supply, sizeof(msg)-sizeof(long), 100, 0);
+            printf("[%d] Got a supply of %s: %d, updated stock!\n", getpid(), msg_supply.prod_type, msg_supply.quantity);
+            printf("[%d] Current stock:\n", getpid());
+            for(int j=0; j<3; j++){
+                printf("[%d] %s: %d\n", getpid(), aux_ptr[i-1].prodList[j].p_name, aux_ptr[i-1].prodList[j].quantity);
+            }
+            aux_ptr[i-1].state = 0;
+        }
 
     }
     printf("[%d] Goodbye!\n", getpid());
     exit(0);
+}
+
+void supply_warehouses(int j){
+    Warehouse *aux_ptr = w_ptr;
+    int random_val = rand() % 3;
+    int quantity = 10;
+    aux_ptr[j].prodList[random_val].quantity += quantity;
+    printf("GOT SELECTED: %s\n", aux_ptr[j].w_name);
+    msg supply_msg;
+    supply_msg.drone_id = 0;
+    supply_msg.mtype = 100;
+    strcpy(supply_msg.prod_type, aux_ptr[j].prodList[random_val].p_name);
+    supply_msg.quantity = quantity;
+    aux_ptr[j].state = 2;
+    msgsnd(mq_id, &supply_msg, sizeof(supply_msg)-sizeof(long), 0);
 }
 
 void warehouse(){
@@ -581,9 +610,9 @@ void *drone_handler(void *id){
         int origin_y = myNode->drone.origin_y;
         while(move_base != 0){
             move_base = move_towards(&myNode->drone.d_x, &myNode->drone.d_y, origin_x, origin_y);
-            //ver os sleeps de jeito aqui
+            //meter um sleep aqui
             if(myNode->drone.dronePackage != NULL){
-                printf("[%d] Got another delivery while returning to base!n", i);
+                printf("[%d] Got another delivery while returning to base!\n", i);
                 move_base = -3;
                 break;
             }
@@ -627,8 +656,6 @@ void kill_threads(){
 }
 
 void drones_init(DroneList droneList, int n_drones){
-    time_t t;
-    srand((unsigned) time(&t));
     int state=1;
     int base_x, base_y, drone_id;
     int j=0;
@@ -757,6 +784,7 @@ void signal_handler(int signum){
     close_sem();
     unlink_named_pipe();
     close_file();
+    cleanup_mq();
     exit(0);
 }
 
@@ -775,7 +803,6 @@ void read_pipe(PackageList packageList, DroneList droneList){
     Package order;
     SearchResult result;
     char *prod_string;
-    int number_of_times = 0;
     int prod_number;
     int checker;
 
@@ -901,8 +928,7 @@ void read_pipe(PackageList packageList, DroneList droneList){
             order.quantity = prod_number;
             order.uid = i;
             order.w_no = result.w_no;
-            number_of_times++;
-            update_drone_order(droneList, order, result, number_of_times);
+            update_drone_order(droneList, order, result);
             int n_warehouses = stats_ptr->n_warehouses;
             update_warehouse_stock(order, n_warehouses);
             pthread_cond_broadcast(&drone_cond);
@@ -917,12 +943,13 @@ void update_warehouse_stock(Package order, int n_warehouses){
         for(int j=0; j<3; j++){
             if(strcmp(aux_ptr[i].prodList[j].p_name, order.prod_type) == 0){
                 aux_ptr[i].prodList[j].quantity -= order.quantity;
+                aux_ptr[i].state = 1;
             }
         }
     }
 }
 
-void update_drone_order(DroneList droneList, Package order, SearchResult result, int i){
+void update_drone_order(DroneList droneList, Package order, SearchResult result){
     DroneList aux = droneList;
     aux = aux->next;
     while(aux != NULL){
@@ -997,6 +1024,9 @@ int main(){
     create_message_queue();
     pid_t pid = getpid();
     printf("SM PID: %d\n", pid);
+    srand(time(NULL));
+    int supply = stats_ptr->n_warehouses;
+    int j=0;
     int forkVal = fork();
     if(forkVal == 0){
         //child, chamar funcao que cria threads
@@ -1012,6 +1042,13 @@ int main(){
         warehouse();
         //waits to child process
     }
-    while(1);
+    while(1){
+        sleep(10);
+        supply_warehouses(j);
+        j++;
+        if(j == supply){
+            j=0;
+        }
+    }
     return 0;
 }

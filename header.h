@@ -87,6 +87,7 @@ typedef struct warehouse{
     double w_y;
     int w_no;
     Product prodList[3];
+    int state; //0- free    1-handling delivery  2-resupply
 }Warehouse;
 //pointer para a struct warehouse
 Warehouse *w_ptr;
@@ -210,10 +211,15 @@ void unlink_named_pipe();
 void signal_handler(int signum);
 void read_pipe(PackageList packageList, DroneList droneList);
 void update_warehouse_stock(Package order, int n_warehouses);
-void update_drone_order(DroneList droneList, Package order, SearchResult result, int i);
+void update_drone_order(DroneList droneList, Package order, SearchResult result);
 SearchResult goto_closest_warehouse(char type[50], int quantity, double order_x, double order_y);
+void supply_warehouses(int j);
 
 #endif
 
 
 //VER VERIFICAÇÕES E METER STATE EM WAREHOUSE PARA N RECEBER MAIS PEDIDOS ENQUANTO TIVER A TRATAR DE UMA ENCOMENDA
+//VER LISTA DE ENCOMENDAS SE UMA PODE SER TRATATA DEPOIS
+//FIX DA FUNÇÃO DO CESARIO PARA CALCULAR DISTANCIA
+//VER DRONE SET
+//FUNCAO DE ABASTECIMENTO
