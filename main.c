@@ -48,6 +48,22 @@ void create_shared_memory(){
     stats_ptr->n_warehouses = 0;
 	
 }
+void init_mutex(){
+    if (pthread_mutex_init(&d_mutex, NULL) != 0)
+    {
+        perror("Something went wrong with init mutex\n");
+    }
+    if (pthread_cond_init(&drone_cond, NULL) != 0)
+    {
+        perror("Something went wrong with init mutex\n");
+    }
+    
+}
+
+void destroy_mutex(){
+    pthread_mutex_destroy(&d_mutex);
+    pthread_cond_destroy(&drone_cond);
+}
 
 void create_warehouse_sm(int n_warehouses){
     if((w_shmid = shmget(IPC_PRIVATE, sizeof(Warehouse)*n_warehouses , IPC_CREAT |0766)) == -1){
@@ -526,6 +542,7 @@ void warehouse(){
 //------CENTRAL PROCESS-----//
 void *drone_handler(void *id){
     int i = *(int*)id;
+
     //time stuff
     time_t now;
     struct tm *now_tm;
@@ -535,10 +552,10 @@ void *drone_handler(void *id){
     hour = now_tm->tm_hour;
     minutes = now_tm->tm_min;
     seconds = now_tm->tm_sec;
-
-    DroneList  myNode;
+    DroneList myNode;
     Warehouse *aux_ptr = w_ptr;
     myNode = find_drone_node(i, droneList);
+
     int move_warehouse = -3;
     int move_deliver = -3;
     int move_base = -3;
@@ -562,6 +579,8 @@ void *drone_handler(void *id){
             pthread_mutex_unlock(&d_mutex);
             break;
         }
+        pthread_mutex_unlock(&d_mutex);
+
         clock_t t;
         t = clock();
         printf("[%d] I'm ready for a delivery! %s to x:%d, y:%d\n", i, myNode->drone.dronePackage->prod_type, (int)myNode->drone.dronePackage->deliver_x, (int)myNode->drone.dronePackage->deliver_y);
@@ -648,7 +667,6 @@ void *drone_handler(void *id){
             printf("[%d] Reached base %d, %d!\n", i, (int)myNode->drone.d_x, (int)myNode->drone.d_y);
             move_base = -3;
         }
-        pthread_mutex_unlock(&d_mutex);
         sleep(5);
     }
     pthread_exit(NULL);
@@ -658,7 +676,6 @@ void *drone_handler(void *id){
 
 DroneList find_drone_node(int drone_id, DroneList droneList){
     DroneList aux = droneList;
-    aux = aux->next;
     while(aux != NULL){
         if(aux->drone.drone_id == drone_id){
             return aux;
@@ -720,7 +737,7 @@ void drones_init(DroneList droneList, int n_drones){
 void central_exit(int signum){
     exit_flag=1;
     pthread_cond_broadcast(&drone_cond);
-    pthread_mutex_unlock(&d_mutex);
+    //pthread_mutex_unlock(&d_mutex);
     kill_threads();
     exit(0);
 }
@@ -728,7 +745,7 @@ void central_exit(int signum){
 void create_new_threads(){
     exit_flag = 1;
     pthread_cond_broadcast(&drone_cond);
-    pthread_mutex_unlock(&d_mutex);
+    //pthread_mutex_unlock(&d_mutex);
     kill_threads();
 }
 
@@ -811,6 +828,7 @@ void create_threads(int n_drones){
         if(pthread_create(&drone_threads[i], NULL, drone_handler, &drone_id[i])==0){
             sem_wait(control_file_write);
             fprintf(log_file, "[%d:%d:%d] Created Drone %d\n", hour, minutes, seconds, i);
+            printf("log\n");
             sem_post(control_file_write);
             printf("[%d] Drone is active\n", drone_id[i]);
         }
@@ -853,6 +871,7 @@ void signal_handler(int signum){
     sem_post(control_file_write);
     close_file();
     close_sem();
+    destroy_mutex();
     exit(0);
 }
 void sigusr_handler(int signum){
@@ -892,8 +911,11 @@ void read_pipe(PackageList packageList, DroneList droneList){
     Package order;
     SearchResult result;
     char *prod_string;
+    Package listOrder;
+    int flag_queue = 0;
     int prod_number;
     int checker;
+    int n_warehouses = stats_ptr->n_warehouses;
 
     while(1){
         if((bufferlen = read(fd, buffer, MAX))>0){
@@ -961,7 +983,8 @@ void read_pipe(PackageList packageList, DroneList droneList){
                                                     printf("Product is available!\n");
                                         
                                                 }
-                                                /*int empty = packageList_empty(packageList);
+                                                int empty = check_empty_list(packageList);
+                                                printf("LIST IS %d\n", empty);
                                                 if(empty == 1){
                                                     listOrder = check_packageList(packageList, n_warehouses);
                                                     if(strcmp(listOrder.prod_type, "NONE") != 0){
@@ -972,7 +995,7 @@ void read_pipe(PackageList packageList, DroneList droneList){
                                                         flag_queue = 1;
                                                     }
                                                     flag_queue = 1;
-                                                }*/
+                                                }
                                             }
                                         }
                                     }
@@ -1085,6 +1108,9 @@ Package check_packageList(PackageList packageList, int n_warehouses){
 
 int check_empty_list(PackageList packageList){
     PackageList aux = packageList->next;
+    while (aux != NULL){
+        aux = aux->next;
+    }
     if(aux == NULL){
         return 0;
     }
@@ -1181,11 +1207,13 @@ int main(){
     seconds = now_tm->tm_sec;
     signal(SIGINT, signal_handler);
     printf("Simulation manager started\n");
-
+    init_sem();
+    init_mutex();
     create_shared_memory();
     read_config();
     open_log_file();
     create_message_queue();
+
 
     sleep_val = stats_ptr->S;
 

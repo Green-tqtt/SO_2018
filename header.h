@@ -221,6 +221,9 @@ void delete_packageList(PackageList packageList);
 void delete_prod_type_list(ProductTypeList prodType);
 Package check_packageList(PackageList packageList, int n_warehouses);
 void sigusr_handler(int signum);
+void init_mutex();
+void destroy_mutex();
+
 
 #endif
 //kill -USR1 piddoprocesso
