@@ -365,7 +365,7 @@ PackageList create_package_list(void){
     return package_node;
 }
 
-void insert_package(int uid, char prod_type[100], int quantity, int deliver_y, int deliver_x, PackageList packageList){
+void insert_package(int uid, char prod_type[100], int quantity, int deliver_y, int deliver_x){
     PackageList insertPack;
     PackageList atual = packageList;
     insertPack = malloc(sizeof(package_node));
@@ -384,7 +384,7 @@ void insert_package(int uid, char prod_type[100], int quantity, int deliver_y, i
     printf("Inserted %d into the linked list\n", insertPack->package.uid);
 }
 
-void list_packages(PackageList packageList){
+void list_packages(){
     PackageList node;
     node = packageList->next;
     while(node != NULL){
@@ -549,8 +549,8 @@ void *drone_handler(void *id){
         }
         pthread_mutex_unlock(&d_mutex);
         int id_w = drone_array[i].dronePackage->w_no;
-        w_x = w_ptr[id_w].w_x;
-        w_y = w_ptr[id_w].w_y;
+        w_x = w_ptr[id_w-1].w_x;
+        w_y = w_ptr[id_w-1].w_y;
         clock_t t;
         t = clock();
         printf("[%d] I'm ready for a delivery! %s to x:%d, y:%d\n", i, drone_array[i].dronePackage->prod_type, (int)drone_array[i].dronePackage->deliver_x, (int)drone_array[i].dronePackage->deliver_y);
@@ -666,11 +666,11 @@ void create_new_threads(){
 }
 
 void delete_lists(){
-    delete_packageList(packageList);
+    delete_packageList();
     delete_prod_type_list(prodType);
 }
 
-void delete_packageList(PackageList packageList){
+void delete_packageList(){
     PackageList aux = packageList;
     PackageList next;
     while(aux != NULL){
@@ -706,7 +706,7 @@ void central(){
     create_threads(n_drones);
     packageList = create_package_list();
     create_named_pipe();
-    read_pipe(packageList);
+    read_pipe();
     
 }
 
@@ -811,7 +811,7 @@ void sigusr_handler(int signum){
 
 }
 
-void read_pipe(PackageList packageList){
+void read_pipe(){
 
      //time stuff
    time_t now;
@@ -895,8 +895,8 @@ void read_pipe(PackageList packageList){
                                                 sem_post(control_file_write);
                                                 result = goto_closest_warehouse(prod_string, prod_number, x_deliver, y_deliver);
                                                 if(result.w_no == -1 || result.drone_id == -1){
-                                                    insert_package(i, prod_string, prod_number, y_deliver, x_deliver, packageList);
-                                                    list_packages(packageList);
+                                                    insert_package(i, prod_string, prod_number, y_deliver, x_deliver);
+                                                    list_packages();
                                                     sem_wait(control_file_write);
                                                     fprintf(log_file, "[%d:%d:%d] Order %d doesn't have enough stock\n", hour, minutes, seconds, i);
                                                     sem_post(control_file_write);
@@ -966,7 +966,6 @@ void read_pipe(PackageList packageList){
         printf("w_no %d\n", result.w_no);
 
         if(result.distance != -1 && result.distance != -2){
-            printf("CADENTRO\n");
             order = (Package * )malloc(sizeof(Package));
             order->deliver_x = result.order_x;   
             order->deliver_y = result.order_y;
@@ -986,12 +985,11 @@ void read_pipe(PackageList packageList){
             sem_post(control_file_write);
             drone_array[result.drone_id].state = 2;
             pthread_cond_broadcast(&drone_cond);
-            printf("broaddddd\n");
             
         }
     }
 }
-Package check_packageList(PackageList packageList, int n_warehouses){
+Package check_packageList(int n_warehouses){
     PackageList aux = packageList->next;
     PackageList aux_ant = packageList;
     Package order;
@@ -1024,12 +1022,9 @@ Package check_packageList(PackageList packageList, int n_warehouses){
     return order;
 }
 
-int check_empty_list(PackageList packageList){
+int check_empty_list(){
     PackageList aux = packageList->next;
-    while (aux != NULL){
-        aux = aux->next;
-    }
-    if(aux == NULL){
+    if(aux->next == NULL){
         return 0;
     }
     return 1;
