@@ -1,7 +1,7 @@
 1280, 800
 Prod_A, Prod_B, Prod_C, Prod_D
 5
-10, 20, 0.5
+10, 20, 1
 
 2
 Warehouse1 xy: 100, 200 prod: Prod_A, 10, Prod_D, 10, Prod_E, 20

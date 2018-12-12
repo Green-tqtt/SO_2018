@@ -115,7 +115,7 @@ typedef struct drone{
     int state;
     double d_x, d_y, origin_x, origin_y;
 }Drone;
-Drone *drone_ptr;
+Drone *drone_array;
 
 //lista ligada de drones
 typedef struct d_node *DroneList;
@@ -190,9 +190,7 @@ ProductTypeList create_product_type_list(void);
 void insert_product_type(char p_name[50], ProductTypeList productType);
 void list_product_types(ProductTypeList productType);
 int check_prod_type(char p_name[50], ProductTypeList productType);
-DroneList create_drone_list(void);
-void insert_drone(int drone_id, int state, double d_x, double d_y, DroneList droneList);
-void list_drones(DroneList droneList);
+//void list_drones();
 void processes_exit();
 PackageList create_package_list(void);
 void insert_package(int uid, char prod_type[100], int quantity, int deliver_y, int deliver_x, PackageList packageList);
@@ -200,23 +198,20 @@ void list_packages(PackageList packageList);
 void warehouse_handler(int i);
 void warehouse();
 void *drone_handler(void *id);
-DroneList find_drone_node(int drone_id, DroneList droneList);
-void drones_init(DroneList droneList, int n_drones);
+DroneList find_drone_node(int drone_id);
+void drones_init(int n_drones);
 void central_exit(int signum);
 void create_new_threads();
-void delete_drone_list(DroneList droneList);
 void central();
 void create_threads(int n_drones);
 void unlink_named_pipe();
 void signal_handler(int signum);
-void read_pipe(PackageList packageList, DroneList droneList);
-void update_warehouse_stock(Package order, int n_warehouses);
-void update_drone_order(DroneList droneList, Package order, SearchResult result);
+void read_pipe(PackageList packageList);
+void update_warehouse_stock(Package *order, int n_warehouses);
 SearchResult goto_closest_warehouse(char type[50], int quantity, double order_x, double order_y);
 void supply_warehouses(int j);
 int check_empty_list(PackageList packageList);
 void delete_lists();
-void delete_drone_list(DroneList droneList);
 void delete_packageList(PackageList packageList);
 void delete_prod_type_list(ProductTypeList prodType);
 Package check_packageList(PackageList packageList, int n_warehouses);
@@ -227,3 +222,4 @@ void destroy_mutex();
 
 #endif
 //kill -USR1 piddoprocesso
+//semaforos por mutexes?
