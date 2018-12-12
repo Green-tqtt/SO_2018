@@ -3803,3 +3803,250 @@
 [3:35:25] Warehouse 1 got new supply of Prod_A:20
 [3:35:28] All processes finished!
 [3:35:28] Program finished!
+[4:3:27] Program started!
+[4:3:28] Created Warehouse 1 with PID: 8806
+[4:3:27] Program started!
+[4:3:28] Created Warehouse 2 with PID: 8807
+[4:3:27] Program started!
+[4:3:38] Warehouse 1 got new supply of Prod_E:20
+[4:3:48] Warehouse 2 got new supply of Prod_D:20
+[4:3:58] Warehouse 1 got new supply of Prod_D:20
+[4:4:8] Warehouse 2 got new supply of Prod_B:20
+[4:4:18] Warehouse 1 got new supply of Prod_A:20
+[4:4:28] Warehouse 2 got new supply of Prod_B:20
+[4:4:38] Warehouse 1 got new supply of Prod_A:20
+[4:4:48] Warehouse 2 got new supply of Prod_B:20
+[4:4:58] Warehouse 1 got new supply of Prod_D:20
+[4:5:8] Warehouse 2 got new supply of Prod_B:20
+[4:5:18] Warehouse 1 got new supply of Prod_E:20
+[4:5:28] Warehouse 2 got new supply of Prod_C:20
+[4:5:38] Warehouse 1 got new supply of Prod_D:20
+[4:5:48] Warehouse 2 got new supply of Prod_B:20
+[4:5:58] All processes finished!
+[4:5:58] Program finished!
+[4:6:0] Program started!
+[4:6:1] Created Warehouse 2 with PID: 8859
+[4:6:0] Program started!
+[4:6:1] Created Warehouse 1 with PID: 8858
+[4:6:0] Program started!
+[4:6:11] Warehouse 1 got new supply of Prod_E:20
+[4:6:21] Warehouse 2 got new supply of Prod_B:20
+[4:6:31] Warehouse 1 got new supply of Prod_A:20
+[4:6:31] All processes finished!
+[4:6:31] Program finished!
+[4:6:36] Program started!
+[4:6:37] Created Warehouse 1 with PID: 8868
+[4:6:36] Program started!
+[4:6:37] Created Warehouse 2 with PID: 8869
+[4:6:36] Program started!
+[4:6:47] Warehouse 1 got new supply of Prod_E:20
+[4:6:53] All processes finished!
+[4:6:53] Program finished!
+[4:7:4] Program started!
+[4:7:5] Created Warehouse 1 with PID: 8877
+[4:7:4] Program started!
+[4:7:5] Created Warehouse 2 with PID: 8878
+[4:7:4] Program started!
+[4:7:4] Created Drone 0
+[4:7:4] Created Drone 1
+[4:7:4] Created Drone 2
+[4:7:4] Created Drone 3
+[4:7:4] Created Drone 4
+[4:7:4] Got new order: 1000
+[4:7:4] Drone 2 got order 1000 to deliver
+[4:7:4] Drone 2 finished delivery 1000
+[4:7:4] Program started!
+[4:7:15] Warehouse 1 got new supply of Prod_A:20
+[4:7:23] All processes finished!
+[4:7:23] Program finished!
+[4:7:33] Program started!
+[4:7:34] Created Warehouse 1 with PID: 8886
+[4:7:33] Program started!
+[4:7:34] Created Warehouse 2 with PID: 8887
+[4:7:33] Program started!
+[4:7:33] Created Drone 0
+[4:7:33] Created Drone 1
+[4:7:33] Created Drone 2
+[4:7:33] Created Drone 3
+[4:7:33] Created Drone 4
+[4:7:33] Program started!
+[4:7:38] All processes finished!
+[4:7:38] Program finished!
+[4:8:22] Program started!
+[4:8:23] Created Warehouse 1 with PID: 8950
+[4:8:22] Program started!
+[4:8:23] Created Warehouse 2 with PID: 8951
+[4:8:22] Program started!
+[4:8:22] Created Drone 0
+[4:8:22] Created Drone 1
+[4:8:22] Created Drone 2
+[4:8:22] Created Drone 3
+[4:8:22] Created Drone 4
+[4:8:22] Program started!
+[4:8:25] All processes finished!
+[4:8:25] Program finished!
+[4:9:1] Program started!
+[4:9:2] Created Warehouse 1 with PID: 8986
+[4:9:1] Program started!
+[4:9:2] Created Warehouse 2 with PID: 8987
+[4:9:1] Program started!
+[4:9:1] Created Drone 0
+[4:9:1] Created Drone 1
+[4:9:1] Created Drone 2
+[4:9:1] Created Drone 3
+[4:9:1] Created Drone 4
+[4:9:1] Program started!
+[4:9:3] All processes finished!
+[4:9:3] Program finished!
+[4:9:7] Program started!
+[4:9:8] Created Warehouse 1 with PID: 8990
+[4:9:7] Program started!
+[4:9:8] Created Warehouse 2 with PID: 8991
+[4:9:7] Program started!
+[4:9:18] Warehouse 1 got new supply of Prod_A:20
+[4:9:19] All processes finished!
+[4:9:19] Program finished!
+[4:12:7] Program started!
+[4:12:8] Created Warehouse 1 with PID: 9082
+[4:12:7] Program started!
+[4:12:8] Created Warehouse 2 with PID: 9083
+[4:12:7] Program started!
+[4:12:7] Created Drone 0
+[4:12:7] Created Drone 1
+[4:12:7] Created Drone 2
+[4:12:7] Created Drone 3
+[4:12:7] Created Drone 4
+[4:12:7] Program started!
+[4:12:10] All processes finished!
+[4:12:10] Program finished!
+[4:12:14] Program started!
+[4:12:15] Created Warehouse 1 with PID: 9086
+[4:12:14] Program started!
+[4:12:15] Created Warehouse 2 with PID: 9087
+[4:12:14] Program started!
+[4:12:25] Warehouse 1 got new supply of Prod_D:20
+[4:12:35] Warehouse 2 got new supply of Prod_C:20
+[4:12:39] All processes finished!
+[4:12:39] Program finished!
+[4:13:45] Program started!
+[4:13:46] Created Warehouse 1 with PID: 9129
+[4:13:45] Program started!
+[4:13:46] Created Warehouse 2 with PID: 9130
+[4:13:45] Program started!
+[4:13:45] Created Drone 0
+[4:13:45] Created Drone 1
+[4:13:45] Created Drone 2
+[4:13:45] Created Drone 3
+[4:13:45] Created Drone 4
+[4:13:53] Created Drone 0
+[4:13:53] Created Drone 1
+[4:13:53] Created Drone 2
+[4:13:59] Created Drone 0
+[4:13:59] Created Drone 1
+[4:13:59] Created Drone 2
+[4:13:59] Created Drone 3
+[4:13:59] Created Drone 4
+[4:14:10] Created Drone 0
+[4:14:10] Created Drone 1
+[4:14:10] Created Drone 2
+[4:14:10] Created Drone 3
+[4:14:10] Created Drone 4
+[4:14:10] Created Drone 5
+[4:13:45] Program started!
+[4:13:56] Warehouse 1 got new supply of Prod_E:20
+[4:14:6] Warehouse 2 got new supply of Prod_D:20
+[4:14:16] Warehouse 1 got new supply of Prod_E:20
+[4:14:26] Warehouse 2 got new supply of Prod_C:20
+[4:14:36] Warehouse 1 got new supply of Prod_A:20
+[4:14:46] Warehouse 2 got new supply of Prod_D:20
+[4:14:51] All processes finished!
+[4:14:51] Program finished!
+[4:15:42] Program started!
+[4:15:43] Created Warehouse 2 with PID: 9175
+[4:15:42] Program started!
+[4:15:43] Created Warehouse 1 with PID: 9174
+[4:15:42] Program started!
+[4:15:42] Created Drone 0
+[4:15:42] Created Drone 1
+[4:15:42] Created Drone 2
+[4:15:42] Created Drone 3
+[4:15:42] Created Drone 4
+[4:15:42] Got new order: 1000
+[4:15:42] Drone 2 got order 1000 to deliver
+[4:15:42] Got new order: 1001
+[4:15:42] Drone 0 got order 1001 to deliver
+[4:15:42] Drone 2 finished delivery 1000
+[4:15:42] Got new order: 1002
+[4:15:42] Drone 2 got order 1002 to deliver
+[4:15:42] Drone 0 finished delivery 1001
+[4:15:42] Drone 2 finished delivery 1002
+[4:15:42] Got new order: 1003
+[4:15:42] Order 1003 doesn't have enough stock
+[4:15:42] Got new order: 1004
+[4:15:42] Order 1004 doesn't have enough stock
+[4:15:42] Got new order: 1005
+[4:15:42] Order 1005 doesn't have enough stock
+[4:15:42] Got new order: 1006
+[4:15:42] Order 1006 doesn't have enough stock
+[4:15:42] Got new order: 1007
+[4:15:42] Order 1007 doesn't have enough stock
+[4:15:42] Got new order: 1008
+[4:15:42] Order 1008 doesn't have enough stock
+[4:15:42] Program started!
+[4:15:53] Warehouse 1 got new supply of Prod_E:20
+[4:16:3] Warehouse 2 got new supply of Prod_D:20
+[4:16:13] Warehouse 1 got new supply of Prod_D:20
+[4:16:23] Warehouse 2 got new supply of Prod_C:20
+[4:16:28] All processes finished!
+[4:16:28] Program finished!
+[4:33:16] Program started!
+[4:33:17] Created Warehouse 1 with PID: 9726
+[4:33:16] Program started!
+[4:33:17] Created Warehouse 2 with PID: 9727
+[4:33:16] Program started!
+[4:33:27] Warehouse 1 got new supply of Prod_A:20
+[4:33:37] Warehouse 2 got new supply of Prod_D:20
+[4:33:47] Warehouse 1 got new supply of Prod_D:20
+[4:33:57] Warehouse 2 got new supply of Prod_B:20
+[4:34:7] Warehouse 1 got new supply of Prod_E:20
+[4:34:17] Warehouse 2 got new supply of Prod_B:20
+[4:34:27] Warehouse 1 got new supply of Prod_A:20
+[4:34:37] Warehouse 2 got new supply of Prod_D:20
+[4:34:47] Warehouse 1 got new supply of Prod_A:20
+[4:34:57] Warehouse 2 got new supply of Prod_B:20
+[4:35:7] Warehouse 1 got new supply of Prod_A:20
+[4:35:17] Warehouse 2 got new supply of Prod_C:20
+[4:35:27] Warehouse 1 got new supply of Prod_A:20
+[4:35:37] Warehouse 2 got new supply of Prod_B:20
+[4:35:47] Warehouse 1 got new supply of Prod_A:20
+[4:35:57] Warehouse 2 got new supply of Prod_D:20
+[4:36:7] Warehouse 1 got new supply of Prod_D:20
+[4:36:17] Warehouse 2 got new supply of Prod_D:20
+[4:36:24] All processes finished!
+[4:36:24] Program finished!
+[4:40:10] Program started!
+[4:40:11] Created Warehouse 2 with PID: 9924
+[4:40:10] Program started!
+[4:40:11] Created Warehouse 1 with PID: 9923
+[5:28:20] Program started!
+[5:28:20] Created Drone 0
+[5:28:20] Created Drone 1
+[5:28:20] Created Drone 2
+[5:28:20] Created Drone 3
+[5:28:20] Created Drone 4
+[5:28:20] Program started!
+[5:28:21] All processes finished!
+[5:28:21] Program finished!
+[5:31:14] Program started!
+[5:31:15] Created Warehouse 1 with PID: 10030
+[5:31:14] Program started!
+[5:31:15] Created Warehouse 2 with PID: 10031
+[5:31:14] Program started!
+[5:31:14] Created Drone 0
+[5:31:14] Created Drone 1
+[5:31:14] Created Drone 2
+[5:31:14] Created Drone 3
+[5:31:14] Created Drone 4
+[5:31:14] Program started!
+[5:31:21] All processes finished!
+[5:31:21] Program finished!

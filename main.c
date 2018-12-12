@@ -506,13 +506,6 @@ void warehouse(){
     }
 }
 
-void *drone_worker(){
-    printf("aaaaaaaaaaaa\n");  
-    printf("ENTREI %d\n", 0);
-    pthread_exit(NULL);
-    return NULL;
-}
-
 //------CENTRAL PROCESS-----//
 void *drone_handler(void *id){
     int i = *(int *)id;    
@@ -545,7 +538,8 @@ void *drone_handler(void *id){
         }
         if(exit_flag == 1){
             pthread_mutex_unlock(&d_mutex);
-            break;
+            pthread_exit(NULL);
+            return NULL;
         }
         pthread_mutex_unlock(&d_mutex);
         int id_w = drone_array[i].dronePackage->w_no;
@@ -712,6 +706,7 @@ void central(){
 
 void create_threads(int n_drones){
        //time stuff
+    exit_flag = 0;
     time_t now;
     struct tm *now_tm;
     int hour, minutes, seconds;
@@ -721,7 +716,7 @@ void create_threads(int n_drones){
     minutes = now_tm->tm_min;
     seconds = now_tm->tm_sec;
 
-    printf("Creating drone list[%d]...\n", stats_ptr->n_drones);
+    printf("Creating drone list...\n", stats_ptr->n_drones);
     
     drone_threads = (pthread_t *)malloc(sizeof(pthread_t)*(stats_ptr->n_drones));
     drone_array = (Drone *)malloc(sizeof(Drone)*(stats_ptr->n_drones));
@@ -751,7 +746,6 @@ void create_threads(int n_drones){
         drone_array[i].d_y = y;
         drone_array[i].state = 1;
         drone_array[i].dronePackage = NULL;
-        printf("%d - %f - %f\n", drone_array[i].drone_id,drone_array[i].d_x,drone_array[i].d_y);
         if((pthread_create(&drone_threads[i], NULL, drone_handler, &drone_array[i].drone_id))!= 0){
             perror("Error creating Drone thread\n");
             exit(1);
@@ -833,7 +827,7 @@ void read_pipe(){
     int bufferlen;
     char *token;
     int i=999;
-    Package *order = NULL;
+    Package *order;
     SearchResult result;
     char *prod_string;
     int prod_number;
@@ -841,6 +835,7 @@ void read_pipe(){
 
     while(1){
         if((bufferlen = read(fd, buffer, MAX))>0){
+            result.distance = -1;
             if(buffer[bufferlen-1] == '\n') buffer[bufferlen-1] = '\0';
 
             token = strtok(buffer, " ");
@@ -934,7 +929,7 @@ void read_pipe(){
                 token = strtok(NULL, " ");
                 if(token != NULL && strcmp(token, "SET") == 0){
                     token = strtok(NULL, " ");
-                    if(token != NULL && atoi(token) != 0){
+                    if(token != NULL && atoi(token) > 0){
                         int number_drones = atoi(token);
                         printf("The number of drones to change is: %d\n", number_drones);
                         if(strtok(NULL, " ") != NULL){
@@ -943,6 +938,7 @@ void read_pipe(){
                         else{
                             create_new_threads();
                             stats_ptr->n_drones = number_drones;
+                            exit_flag = 0;
                             create_threads(number_drones);
                         }
                     }
@@ -959,11 +955,6 @@ void read_pipe(){
             }
             fflush(stdout);
         }
-        printf("dist %f\n", result.distance);
-        printf("d_id %d\n", result.drone_id);
-        printf("o_x %f\n", result.order_x);
-        printf("o_y %f\n", result.order_y);
-        printf("w_no %d\n", result.w_no);
 
         if(result.distance != -1 && result.distance != -2){
             order = (Package * )malloc(sizeof(Package));
@@ -974,7 +965,6 @@ void read_pipe(){
             order->uid = i;
             order->w_no = result.w_no;
             drone_array[result.drone_id].dronePackage = order;
-            printf("w_no %d drone_id %d \n", drone_array[result.drone_id].dronePackage->w_no, result.drone_id);
             int n_warehouses = stats_ptr->n_warehouses;
             sem_wait(access_shared_mem);
             stats_ptr->n_e_drones++;
@@ -985,7 +975,40 @@ void read_pipe(){
             sem_post(control_file_write);
             drone_array[result.drone_id].state = 2;
             pthread_cond_broadcast(&drone_cond);
-            
+        }
+
+        PackageList auxList = packageList->next;
+        PackageList ant = packageList;
+
+        while (auxList != NULL){
+            result = goto_closest_warehouse(auxList->package.prod_type, auxList->package.quantity, auxList->package.deliver_x, auxList->package.deliver_y);
+            if(result.distance != -1 && result.distance != -2){
+                order = (Package * )malloc(sizeof(Package));
+                order->deliver_x = result.order_x;   
+                order->deliver_y = result.order_y;
+                strcpy(order->prod_type, auxList->package.prod_type);
+                order->quantity = auxList->package.quantity;
+                order->uid = auxList->package.uid;
+                order->w_no = result.w_no;
+                auxList->package.uid = i;
+                auxList->package.w_no = result.w_no;
+                drone_array[result.drone_id].dronePackage = order;
+                int n_warehouses = stats_ptr->n_warehouses;
+                sem_wait(access_shared_mem);
+                stats_ptr->n_e_drones++;
+                sem_post(access_shared_mem);
+                update_warehouse_stock(order, n_warehouses);
+                sem_wait(control_file_write);
+                fprintf(log_file, "[%d:%d:%d] Drone %d got order %d to deliver\n", hour, minutes, seconds, result.drone_id, order->uid);
+                sem_post(control_file_write);
+                drone_array[result.drone_id].state = 2;
+                pthread_cond_broadcast(&drone_cond);
+                free(auxList);
+                ant->next = auxList->next;
+                auxList = ant;
+            }
+            ant = auxList;
+            auxList = auxList->next;
         }
     }
 }
